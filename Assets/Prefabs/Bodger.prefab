@@ -769,6 +769,7 @@ GameObject:
   - component: {fileID: 2592041829735104171}
   - component: {fileID: 7353165515800722175}
   - component: {fileID: 732729935765290806}
+  - component: {fileID: 7269731586256938923}
   m_Layer: 0
   m_Name: Bodger
   m_TagString: Untagged
@@ -912,6 +913,20 @@ MonoBehaviour:
   - {fileID: 3886417025389244657}
   - {fileID: 2427668011131686401}
   visualRoot: {fileID: 3987786757671682878}
+--- !u!114 &7269731586256938923
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5309966446229808108}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f8f4dab1c28e4bf0b5c4df0c9d6ce6f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BodgeSquad.UI.PlayerHud
+  playerCamera: {fileID: 6743689534390071525}
+  interactor: {fileID: 7353165515800722175}
 --- !u!1 &5316384934955939136
 GameObject:
   m_ObjectHideFlags: 0

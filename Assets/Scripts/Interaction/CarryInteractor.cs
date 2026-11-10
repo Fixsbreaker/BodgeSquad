@@ -1,9 +1,15 @@
+using BodgeSquad.Job;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace BodgeSquad.Interaction
 {
-    // Interact: pick up / drop the Carryable you're looking at. Attack: throw it.
+    // Interact (E / Y), in priority order:
+    //   holding a repair kit + looking at a defect → use the kit on it
+    //   holding anything                          → drop it
+    //   looking at a pressable (doorbell)          → press it
+    //   looking at a carryable                     → pick it up (pays for unpaid kits)
+    // Attack (LMB / X) while holding: throw.
     // The held item is driven by velocity toward the hold point, so it still collides
     // (jams in doorways, knocks things over) instead of ghosting through walls.
     [RequireComponent(typeof(PlayerInput))]
@@ -18,16 +24,26 @@ namespace BodgeSquad.Interaction
         [SerializeField] float dropDistance = 2.2f; // snaps free if it gets wedged too far away
 
         InputAction _interact, _attack;
+        PlayerInput _input;
         Carryable _held;
         int _rayMask = ~0;
+        float _messageUntil;
 
         public Carryable Held => _held;
+        public int PlayerIndex => _input != null ? _input.playerIndex : 0;
+        public bool UsesKeyboard => _input != null && _input.currentControlScheme == "Keyboard&Mouse";
+
+        // What the crosshair is on (refreshed every frame, read by the player HUD)
+        public Defect LookDefect { get; private set; }
+        public Carryable LookCarryable { get; private set; }
+        public IPressable LookPressable { get; private set; }
+        public string Message { get; private set; }   // short-lived feedback ("Not enough money")
 
         void Start()
         {
-            var input = GetComponent<PlayerInput>();
-            _interact = input.actions["Interact"];
-            _attack = input.actions["Attack"];
+            _input = GetComponent<PlayerInput>();
+            _interact = _input.actions["Interact"];
+            _attack = _input.actions["Attack"];
         }
 
         public void SetIgnoredLayer(int layer) => _rayMask = ~(1 << layer);
@@ -35,15 +51,52 @@ namespace BodgeSquad.Interaction
         void Update()
         {
             if (_interact == null) return;
-            if (_interact.WasPressedThisFrame())
-            {
-                if (_held != null) Release(Vector3.zero);
-                else TryGrab();
-            }
+            ScanLook();
+            if (Time.time > _messageUntil) Message = null;
+
+            if (_interact.WasPressedThisFrame()) OnInteract();
             else if (_held != null && _attack.WasPressedThisFrame())
-            {
                 Release(eye.forward * throwSpeed / _held.CarryWeight);
+        }
+
+        readonly RaycastHit[] _hits = new RaycastHit[16];
+
+        void ScanLook()
+        {
+            LookDefect = null; LookCarryable = null; LookPressable = null;
+            int n = Physics.RaycastNonAlloc(eye.position, eye.forward, _hits, reach, _rayMask, QueryTriggerInteraction.Collide);
+            // nearest hit that isn't the thing in our hands
+            int best = -1;
+            for (int i = 0; i < n; i++)
+            {
+                if (_held != null && _hits[i].rigidbody == _held.Body) continue;
+                if (best < 0 || _hits[i].distance < _hits[best].distance) best = i;
             }
+            if (best < 0) return;
+            var hit = _hits[best];
+            LookDefect = hit.collider.GetComponentInParent<Defect>();
+            var c = hit.collider.GetComponentInParent<Carryable>();
+            if (c != null && c != _held) LookCarryable = c;
+            LookPressable = hit.collider.GetComponentInParent<IPressable>();
+        }
+
+        void OnInteract()
+        {
+            var kit = _held != null ? _held.GetComponent<RepairKit>() : null;
+            if (kit != null && LookDefect != null)
+            {
+                if (LookDefect.CanApply(kit.Type, out var why) && LookDefect.Apply(kit.Type, PlayerIndex))
+                {
+                    var used = _held;
+                    Release(Vector3.zero);
+                    Destroy(used.gameObject); // consumed
+                }
+                else Flash(why);
+                return;
+            }
+            if (_held != null) { Release(Vector3.zero); return; }
+            if (LookPressable != null && LookPressable.PressPrompt != null) { LookPressable.Press(PlayerIndex); return; }
+            if (LookCarryable != null) TryGrab(LookCarryable);
         }
 
         void FixedUpdate()
@@ -58,11 +111,11 @@ namespace BodgeSquad.Interaction
             rb.angularVelocity *= 0.85f;
         }
 
-        void TryGrab()
+        void TryGrab(Carryable c)
         {
-            if (!Physics.Raycast(eye.position, eye.forward, out var hit, reach, _rayMask, QueryTriggerInteraction.Ignore)) return;
-            var c = hit.collider.GetComponentInParent<Carryable>();
-            if (c == null || c.IsHeld) return;
+            if (c.IsHeld) return;
+            var kit = c.GetComponent<RepairKit>();
+            if (kit != null && !kit.TryPurchase()) { Flash($"Not enough money for {RepairRules.KitName(kit.Type)}"); return; }
 
             _held = c;
             c.Holder = transform;
@@ -79,6 +132,13 @@ namespace BodgeSquad.Interaction
             c.Body.useGravity = true;
             if (velocity != Vector3.zero) c.Body.linearVelocity = velocity;
             Debug.Log($"[Carry] {name} {(velocity == Vector3.zero ? "dropped" : "threw")} {c.name}");
+        }
+
+        void Flash(string msg)
+        {
+            if (string.IsNullOrEmpty(msg)) return;
+            Message = msg;
+            _messageUntil = Time.time + 2f;
         }
 
         void OnDisable()

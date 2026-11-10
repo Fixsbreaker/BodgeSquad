@@ -25,6 +25,18 @@ namespace BodgeSquad.Art
             Hex("#B57EDC"), // P4 lilac
         };
 
+        // Damage, bodges and the inspector (derived from the same family)
+        public static readonly Color DamageDark  = Hex("#2B2A33"); // crack / hole interior
+        public static readonly Color Mould       = Hex("#3E4A2E"); // damp black-green
+        public static readonly Color FreshPaint  = Hex("#F3ECDA"); // magnolia, a shade too clean
+        public static readonly Color Tape        = Hex("#A9AFB8"); // duct tape silver
+        public static readonly Color Wallpaper   = Hex("#D9C9A3"); // cheap woodchip
+        public static readonly Color InspectorSuit = Hex("#4B5263"); // grey suit
+        public static readonly Color Pass        = Hex("#7FA36B"); // same avocado as props
+        public static readonly Color UiInk       = Hex("#1E2129"); // HUD panels
+        public static readonly Color UiPaper     = Hex("#F4EEDF"); // HUD text
+        public static readonly Color TintYellow  = Hex("#F2C230"); // mid-risk on the obviousness meter
+
         // Light story (derived from the palette family)
         public static readonly Color KeyLight   = Hex("#FFF0D6"); // warm midday sun
         public static readonly Color AmbientSky = Hex("#AFC3D9"); // cool bounce
