@@ -16,6 +16,15 @@ namespace BodgeSquad.Art
         public static readonly Color Shadow          = Hex("#5B6478"); // damp slate
         public static readonly Color Accent          = Hex("#E63946"); // inspector red flag
 
+        // Per-player hard-hat tints, so everyone can tell who bodged what (same saturation family)
+        public static readonly Color[] PlayerTints =
+        {
+            Hex("#F28C28"), // P1 hi-vis orange
+            Hex("#F2C230"), // P2 safety yellow
+            Hex("#4FA3D9"), // P3 sky blue
+            Hex("#B57EDC"), // P4 lilac
+        };
+
         // Light story (derived from the palette family)
         public static readonly Color KeyLight   = Hex("#FFF0D6"); // warm midday sun
         public static readonly Color AmbientSky = Hex("#AFC3D9"); // cool bounce

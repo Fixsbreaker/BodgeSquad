@@ -47,7 +47,7 @@ namespace ProjectBootstrap
             mAccent.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
 
             // --- Key light --------------------------------------------------------------------
-            var sun = Object.FindFirstObjectByType<Light>();
+            var sun = Object.FindAnyObjectByType<Light>();
             if (sun == null) sun = new GameObject("Directional Light").AddComponent<Light>();
             sun.type = LightType.Directional;
             sun.color = Palette.KeyLight;
@@ -94,7 +94,7 @@ namespace ProjectBootstrap
             wb.temperature.Override(8f);
             EditorUtility.SetDirty(profile);
 
-            var volume = Object.FindFirstObjectByType<Volume>();
+            var volume = Object.FindAnyObjectByType<Volume>();
             if (volume == null) volume = new GameObject("Global Volume").AddComponent<Volume>();
             volume.isGlobal = true;
             volume.priority = 1;
@@ -145,7 +145,7 @@ namespace ProjectBootstrap
 
             // --- Verify: no default material, palette sky, post on; then capture ---------------
             int defaults = 0;
-            foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
+            foreach (var r in Object.FindObjectsByType<Renderer>())
                 if (r.sharedMaterial == null || r.sharedMaterial.name == "Default-Material")
                 { defaults++; Debug.LogWarning($"[Baseline] Default material on {r.name}"); }
             Debug.Log($"[Baseline] Default-material renderers: {defaults}; skybox: {RenderSettings.skybox.name}; postFX: {camData.renderPostProcessing}; HDR: {urp.supportsHDR}");
