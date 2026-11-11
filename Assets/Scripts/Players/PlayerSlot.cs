@@ -16,7 +16,8 @@ namespace BodgeSquad.Players
         [SerializeField] Camera playerCamera;
         [SerializeField] CinemachineBrain brain;
         [SerializeField] CinemachineCamera vcam;
-        [SerializeField] Renderer[] tintedRenderers;   // hard hat etc.
+        [SerializeField] Renderer[] tintedRenderers;   // every hat variant's tinted parts
+        [SerializeField] GameObject[] hatVariants;     // hard hat, cap, beanie, goggles+bun — one per player
         [SerializeField] Transform visualRoot;
 
         public int Index { get; private set; }
@@ -41,7 +42,9 @@ namespace BodgeSquad.Players
                 GetComponent<CarryInteractor>()?.SetIgnoredLayer(layer);
             }
 
-            // Player tint
+            // Signature hat + player tint
+            for (int i = 0; i < hatVariants.Length; i++)
+                if (hatVariants[i] != null) hatVariants[i].SetActive(i == Index % hatVariants.Length);
             var block = new MaterialPropertyBlock();
             block.SetColor("_BaseColor", Palette.PlayerTints[Index]);
             foreach (var r in tintedRenderers) r.SetPropertyBlock(block);

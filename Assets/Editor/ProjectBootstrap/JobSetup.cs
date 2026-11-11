@@ -42,7 +42,7 @@ namespace ProjectBootstrap
             TMP_PackageResourceImporter.ImportResources(true, false, false);
         }
 
-        static Material _glass, _ink, _damage, _mould, _paint, _tape, _paper, _suit, _accent, _pass, _wood, _walls, _trim, _props, _blue, _skin;
+        static Material _cream, _hair, _hat, _stripe, _glass, _ink, _damage, _mould, _paint, _tape, _paper, _suit, _accent, _pass, _wood, _walls, _trim, _props, _blue, _skin;
 
         public static void Run()
         {
@@ -93,6 +93,7 @@ namespace ProjectBootstrap
             button.localRotation = Quaternion.Euler(90, 0, 0);
             var bellC = bell.gameObject.AddComponent<Doorbell>();
             Set(bellC, "button", button);
+            Card(root, "DoorbellCard", new Vector3(-1.05f, 1.68f, -3.9f), Quaternion.Euler(0, 180, 0), new Vector2(0.62f, 0.3f));
             WorldText(root, "DoorbellLabel", "CALL\nINSPECTOR", new Vector3(-1.05f, 1.68f, -3.85f), Quaternion.Euler(0, 180, 0), 1.1f, Palette.UiInk);
 
             // --- supplies shelf on the north wall -----------------------------------------------
@@ -100,6 +101,7 @@ namespace ProjectBootstrap
             Box(shop, "Table", new Vector3(-2.0f, 0.82f, 3.55f), new Vector3(3.2f, 0.08f, 0.6f), _wood);
             foreach (var x in new[] { -3.5f, -0.5f }) foreach (var z in new[] { 3.3f, 3.8f })
                 Box(shop, "Leg", new Vector3(x, 0.39f, z), new Vector3(0.07f, 0.78f, 0.07f), _trim);
+            Card(shop, "SignBoard", new Vector3(-2.0f, 2.35f, 3.91f), Quaternion.identity, new Vector2(2.9f, 0.42f));
             WorldText(shop, "Sign", "SUPPLIES  <size=70%>(pay on pickup)</size>", new Vector3(-2.0f, 2.35f, 3.88f), Quaternion.identity, 2.2f, Palette.UiInk);
             KitType[] order = { KitType.Filler, KitType.AntiMould, KitType.WiringKit, KitType.PaintTin, KitType.WallpaperRoll, KitType.DuctTape };
             for (int i = 0; i < order.Length; i++)
@@ -109,6 +111,7 @@ namespace ProjectBootstrap
                 shelf.position = new Vector3(x, 0.86f, 3.5f);
                 var slot = new GameObject("Slot").transform; slot.SetParent(shelf, false);
                 slot.localPosition = new Vector3(0, 0.16f, 0);
+                Card(shelf, "TagCard", new Vector3(x, 1.25f, 3.315f), Quaternion.identity, new Vector2(0.46f, 0.3f));
                 var tag = WorldText(shelf, "PriceTag", "", new Vector3(x, 1.25f, 3.3f), Quaternion.identity, 0.75f,
                                     RepairRules.IsProperFix(order[i]) ? Palette.CharacterSecondary : Palette.Accent);
                 var s = shelf.gameObject.AddComponent<SupplyShelf>();
@@ -133,16 +136,35 @@ namespace ProjectBootstrap
             var insp = new GameObject("Inspector").transform; insp.SetParent(root, false);
             insp.SetPositionAndRotation(entrance.position, entrance.rotation);
             var body = new GameObject("Body").transform; body.SetParent(insp, false);
-            Prim(body, PrimitiveType.Capsule, "Suit", new Vector3(0, 0.9f, 0), new Vector3(0.55f, 0.62f, 0.42f), _suit, false);
-            Prim(body, PrimitiveType.Cube, "Shirt", new Vector3(0, 1.22f, 0.17f), new Vector3(0.22f, 0.3f, 0.08f), _paper, false);
-            Prim(body, PrimitiveType.Cube, "Tie", new Vector3(0, 1.15f, 0.22f), new Vector3(0.07f, 0.32f, 0.03f), _accent, false);
-            Prim(body, PrimitiveType.Sphere, "Head", new Vector3(0, 1.68f, 0.02f), new Vector3(0.36f, 0.38f, 0.36f), _skin, false);
-            Prim(body, PrimitiveType.Cube, "Glasses", new Vector3(0, 1.72f, 0.18f), new Vector3(0.3f, 0.06f, 0.04f), _ink, false);
-            Prim(body, PrimitiveType.Cylinder, "HatBrim", new Vector3(0, 1.86f, 0.02f), new Vector3(0.5f, 0.015f, 0.5f), _suit, false);
-            Prim(body, PrimitiveType.Cylinder, "HatTop", new Vector3(0, 1.94f, 0.02f), new Vector3(0.32f, 0.08f, 0.32f), _suit, false);
-            var clip = Prim(body, PrimitiveType.Cube, "Clipboard", new Vector3(0.3f, 1.05f, 0.25f), new Vector3(0.24f, 0.32f, 0.03f), _wood, false);
-            clip.localRotation = Quaternion.Euler(-25, -20, 0);
-            Prim(clip, PrimitiveType.Cube, "Paper", new Vector3(0, -0.05f, 0.6f), new Vector3(0.85f, 0.8f, 0.3f), _paper, false);
+            // Key-art inspector: plum suit, red tie, big head, angry brows, moustache, glasses, fedora, clipboard
+            Prim(body, PrimitiveType.Cube, "Leg_L", new Vector3(-0.12f, 0.3f, 0), new Vector3(0.2f, 0.6f, 0.24f), _suit, false);
+            Prim(body, PrimitiveType.Cube, "Leg_R", new Vector3(0.12f, 0.3f, 0), new Vector3(0.2f, 0.6f, 0.24f), _suit, false);
+            Prim(body, PrimitiveType.Cube, "Shoe_L", new Vector3(-0.12f, 0.05f, 0.05f), new Vector3(0.22f, 0.1f, 0.32f), _ink, false);
+            Prim(body, PrimitiveType.Cube, "Shoe_R", new Vector3(0.12f, 0.05f, 0.05f), new Vector3(0.22f, 0.1f, 0.32f), _ink, false);
+            Prim(body, PrimitiveType.Cube, "Jacket", new Vector3(0, 0.9f, 0), new Vector3(0.62f, 0.66f, 0.4f), _suit, false);
+            Prim(body, PrimitiveType.Cube, "Shirt", new Vector3(0, 1.08f, 0.17f), new Vector3(0.2f, 0.3f, 0.08f), _cream, false);
+            Prim(body, PrimitiveType.Cube, "Tie", new Vector3(0, 1.02f, 0.215f), new Vector3(0.07f, 0.36f, 0.02f), _accent, false);
+            var armL = Prim(body, PrimitiveType.Cube, "Arm_L", new Vector3(-0.4f, 0.92f, 0), new Vector3(0.16f, 0.5f, 0.2f), _suit, false); armL.localRotation = Quaternion.Euler(0, 0, -8);
+            var armR = Prim(body, PrimitiveType.Cube, "Arm_R", new Vector3(0.38f, 0.98f, 0.12f), new Vector3(0.16f, 0.5f, 0.2f), _suit, false); armR.localRotation = Quaternion.Euler(-50, 0, 10);
+            Prim(body, PrimitiveType.Sphere, "Hand_L", new Vector3(-0.43f, 0.64f, 0), Vector3.one * 0.15f, _skin, false);
+            Prim(body, PrimitiveType.Sphere, "Head", new Vector3(0, 1.5f, 0.02f), new Vector3(0.56f, 0.56f, 0.52f), _skin, false);
+            Prim(body, PrimitiveType.Sphere, "Nose", new Vector3(0, 1.48f, 0.29f), new Vector3(0.12f, 0.12f, 0.12f), _skin, false);
+            Prim(body, PrimitiveType.Cube, "Moustache", new Vector3(0, 1.4f, 0.27f), new Vector3(0.26f, 0.07f, 0.06f), _hair, false);
+            var browL = Prim(body, PrimitiveType.Cube, "Brow_L", new Vector3(-0.1f, 1.62f, 0.245f), new Vector3(0.13f, 0.035f, 0.03f), _hair, false); browL.localRotation = Quaternion.Euler(0, 0, -15);
+            var browR = Prim(body, PrimitiveType.Cube, "Brow_R", new Vector3(0.1f, 1.62f, 0.245f), new Vector3(0.13f, 0.035f, 0.03f), _hair, false); browR.localRotation = Quaternion.Euler(0, 0, 15);
+            foreach (var gx in new[] { -0.1f, 0.1f })
+            {
+                Prim(body, PrimitiveType.Cube, "GlassFrame", new Vector3(gx, 1.55f, 0.268f), new Vector3(0.15f, 0.1f, 0.02f), _ink, false);
+                Prim(body, PrimitiveType.Cube, "GlassLens", new Vector3(gx, 1.55f, 0.28f), new Vector3(0.11f, 0.065f, 0.01f), _glass, false);
+            }
+            Prim(body, PrimitiveType.Cube, "GlassBridge", new Vector3(0, 1.56f, 0.285f), new Vector3(0.06f, 0.02f, 0.02f), _ink, false);
+            Prim(body, PrimitiveType.Cylinder, "HatBrim", new Vector3(0, 1.74f, 0.02f), new Vector3(0.66f, 0.015f, 0.62f), _hat, false);
+            Prim(body, PrimitiveType.Cylinder, "HatTop", new Vector3(0, 1.84f, 0.02f), new Vector3(0.42f, 0.1f, 0.4f), _hat, false);
+            Prim(body, PrimitiveType.Cylinder, "HatBand", new Vector3(0, 1.77f, 0.02f), new Vector3(0.43f, 0.025f, 0.41f), _ink, false);
+            var clip = Prim(body, PrimitiveType.Cube, "Clipboard", new Vector3(0.28f, 1.12f, 0.3f), new Vector3(0.26f, 0.34f, 0.03f), _wood, false);
+            clip.localRotation = Quaternion.Euler(-35, -20, 0);
+            Prim(clip, PrimitiveType.Cube, "Paper", new Vector3(0, -0.05f, 0.6f), new Vector3(0.85f, 0.8f, 0.3f), _cream, false);
+            Prim(clip, PrimitiveType.Cube, "Clip", new Vector3(0, 0.45f, 0.8f), new Vector3(0.4f, 0.1f, 0.5f), _tape, false);
             var inspector = insp.gameObject.AddComponent<Inspector>();
             Set(inspector, "body", body);
             Set(inspector, "entrance", entrance);
@@ -207,8 +229,8 @@ namespace ProjectBootstrap
             }
             var paint = Flat(root, "PaintPatch", new Vector3(0, 0, 0.012f), new Vector3(0.62f, 0.55f), 3f, _paint).gameObject;
             var paper = Flat(root, "WallpaperPatch", new Vector3(0, 0, 0.012f), new Vector3(0.7f, 0.7f), 0f, _paper).gameObject;
-            Flat(paper.transform, "Stripe1", new Vector3(-0.2f, 0, 0.005f), new Vector3(0.04f, 0.98f), 0f, _props);
-            Flat(paper.transform, "Stripe2", new Vector3(0.2f, 0, 0.005f), new Vector3(0.04f, 0.98f), 0f, _props);
+            Flat(paper.transform, "Stripe1", new Vector3(-0.2f, 0, 0.005f), new Vector3(0.04f, 0.98f), 0f, _stripe);
+            Flat(paper.transform, "Stripe2", new Vector3(0.2f, 0, 0.005f), new Vector3(0.04f, 0.98f), 0f, _stripe);
             var tape = new GameObject("TapePatch").transform; tape.SetParent(root, false);
             Flat(tape, "T1", new Vector3(0, 0, 0.012f), new Vector3(0.6f, 0.09f), 35f, _tape);
             Flat(tape, "T2", new Vector3(0, 0, 0.014f), new Vector3(0.6f, 0.09f), -35f, _tape);
@@ -286,8 +308,14 @@ namespace ProjectBootstrap
         {
             var urp = (UniversalRenderPipelineAsset)UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline;
             var src = urp.defaultMaterial;
-            _walls = Load("M_Walls"); _wood = Load("M_Floor"); _trim = Load("M_Trim"); _props = Load("M_Props");
-            _blue = Load("M_CharacterSecondary"); _accent = Load("M_Accent"); _skin = _walls;
+            _walls = Mat("M_Walls", src, Palette.Walls, 0.05f); _trim = Mat("M_Trim", src, Palette.Trim, 0.2f); _props = Load("M_Props");
+            _wood = Mat("M_Wood", src, Palette.Wood, 0.2f);
+            _blue = Load("M_CharacterSecondary"); _accent = Load("M_Accent");
+            _skin = Mat("M_Skin", src, Palette.Skin, 0.25f);
+            _cream = Mat("M_Cream", src, Palette.Cream, 0.1f);
+            _hair = Mat("M_Hair", src, Palette.Hair, 0.1f);
+            _hat = Mat("M_InspectorHat", src, Palette.InspectorHat, 0.1f);
+            _stripe = Mat("M_WallsDark", src, Palette.WallsDark, 0.05f);
             _ink = Mat("M_Ink", src, Palette.UiInk, 0.2f);
             _damage = Mat("M_DamageDark", src, Palette.DamageDark, 0.05f);
             _mould = Mat("M_Mould", src, Palette.Mould, 0.0f);
@@ -371,6 +399,18 @@ namespace ProjectBootstrap
             t.textWrappingMode = TextWrappingModes.NoWrap;
             t.rectTransform.sizeDelta = new Vector2(4, 1);
             return t;
+        }
+
+        // Cream backing card so world text reads on the teal wallpaper
+        static void Card(Transform parent, string name, Vector3 worldPos, Quaternion rot, Vector2 size)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            go.name = name;
+            Object.DestroyImmediate(go.GetComponent<Collider>());
+            go.transform.SetParent(parent, false);
+            go.transform.SetPositionAndRotation(worldPos, rot);
+            go.transform.localScale = new Vector3(size.x, size.y, 1);
+            go.GetComponent<Renderer>().sharedMaterial = _cream;
         }
 
         static Transform Box(Transform parent, string name, Vector3 worldPos, Vector3 scale, Material m)

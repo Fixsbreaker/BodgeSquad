@@ -14,7 +14,7 @@ namespace BodgeSquad.UI
         [SerializeField] PlayerInputManager players;
 
         TextMeshProUGUI _top, _feed, _join, _report;
-        GameObject _reportPanel;
+        GameObject _reportPanel, _joinGroup;
         float _feedUntil;
 
         void Start()
@@ -25,8 +25,25 @@ namespace BodgeSquad.UI
             var bar = UiKit.Panel("TopBar", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -12), new Vector2(760, 64), UiKit.WithAlpha(Palette.UiInk, 0.82f));
             _top = UiKit.Text("Status", bar.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(740, 60), 34, TextAlignmentOptions.Center);
             _feed = UiKit.Text("Feed", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -86), new Vector2(1400, 60), 36, TextAlignmentOptions.Top);
-            _join = UiKit.Text("JoinHint", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, -60), new Vector2(1400, 200), 56, TextAlignmentOptions.Center);
-            _join.text = "BODGE SQUAD\n<size=60%>Press any button to join (up to 4 players)</size>";
+            // Title card in the key-art style: chunky cream "BODGE" on a tilted red sign, "SQUAD" on yellow tape
+            var logo = UiKit.Rect("Logo", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, 90), new Vector2(900, 420));
+            _joinGroup = logo.gameObject;
+            var shadow = UiKit.Panel("SignShadow", logo, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(10, 52), new Vector2(760, 210), Palette.UiInk);
+            shadow.rectTransform.localRotation = Quaternion.Euler(0, 0, 3f);
+            var sign = UiKit.Panel("Sign", logo, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, 62), new Vector2(760, 210), Palette.Accent);
+            sign.rectTransform.localRotation = Quaternion.Euler(0, 0, 3f);
+            var bodge = UiKit.Text("Bodge", sign.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, -4), new Vector2(760, 210), 170, TextAlignmentOptions.Center, Palette.UiPaper);
+            bodge.text = "<b>BODGE</b>";
+            bodge.outlineWidth = 0.3f;
+            bodge.characterSpacing = 4f;
+            var tape = UiKit.Panel("Tape", logo, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(40, -70), new Vector2(560, 120), Palette.TintYellow);
+            tape.rectTransform.localRotation = Quaternion.Euler(0, 0, -2.5f);
+            var squad = UiKit.Text("Squad", tape.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 120), 96, TextAlignmentOptions.Center, Palette.UiInk);
+            squad.text = "<b>SQUAD</b>";
+            squad.outlineWidth = 0f;
+            squad.characterSpacing = 10f;
+            _join = UiKit.Text("JoinHint", logo, new Vector2(.5f, 0), new Vector2(.5f, 1), new Vector2(0, -40), new Vector2(1400, 80), 40, TextAlignmentOptions.Center);
+            _join.text = "Press any button to join  <size=80%>(up to 4 players)</size>";
 
             var panel = UiKit.Panel("Report", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(1240, 820), UiKit.WithAlpha(Palette.UiInk, 0.92f));
             _reportPanel = panel.gameObject;
@@ -63,7 +80,7 @@ namespace BodgeSquad.UI
             var job = JobManager.Instance;
             if (job == null || _top == null) return;
 
-            _join.gameObject.SetActive(players != null && players.playerCount == 0);
+            _joinGroup.SetActive(players != null && players.playerCount == 0);
             if (Time.time > _feedUntil) _feed.text = "";
 
             string money = $"BUDGET <b>${job.Budget}</b>   SPENT ${job.Spent}";
