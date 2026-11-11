@@ -25,8 +25,8 @@ namespace BodgeSquad.UI
             var root = canvas.transform;
 
             _crosshair = UiKit.Panel("Crosshair", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(10, 10), UiKit.WithAlpha(Palette.UiPaper, 0.9f));
-            _prompt = UiKit.Text("Prompt", root, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 70), new Vector2(1500, 90), 46, TextAlignmentOptions.Bottom);
-            _message = UiKit.Text("Message", root, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 170), new Vector2(1500, 70), 40, TextAlignmentOptions.Bottom, Palette.Accent);
+            _prompt = UiKit.Text("Prompt", root, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 60), new Vector2(1600, 140), 44, TextAlignmentOptions.Bottom);
+            _message = UiKit.Text("Message", root, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 210), new Vector2(1500, 70), 40, TextAlignmentOptions.Bottom, Palette.Accent);
 
             // Obviousness meter, right of the crosshair
             var meterBg = UiKit.Panel("ObviousnessMeter", root, new Vector2(.5f, .5f), new Vector2(0, .5f), new Vector2(60, -40), new Vector2(330, 26), UiKit.WithAlpha(Palette.UiInk, 0.75f));
@@ -56,10 +56,12 @@ namespace BodgeSquad.UI
 
             var held = interactor.Held;
             var kit = held != null ? held.GetComponent<RepairKit>() : null;
+            var cover = held != null ? held.GetComponent<Concealer>() : null;
             var defect = interactor.LookDefect;
             string prompt = "";
             float? meter = null;
             string meterText = null;
+            string accent = ColorUtility.ToHtmlStringRGB(Palette.Accent);
 
             if (kit != null && defect != null)
             {
@@ -67,16 +69,24 @@ namespace BodgeSquad.UI
                 {
                     var after = RepairRules.IsProperFix(kit.Type) ? RepairState.Fixed : RepairRules.ConcealWith(kit.Type);
                     float risk = RepairRules.Obviousness(after, defect.Severity);
-                    prompt = $"{use} {(after == RepairState.Fixed ? "Fix" : "Bodge")} {defect.DisplayName} with {RepairRules.KitName(kit.Type)}";
+                    prompt = $"{use} {(after == RepairState.Fixed ? "Fix" : "Hide")} {defect.DisplayName} with {RepairRules.KitName(kit.Type)}";
                     meter = risk;
-                    meterText = $"After: {risk:P0} obvious";
+                    meterText = $"After: {risk:P0} chance to get caught";
                 }
-                else prompt = $"<color=#{ColorUtility.ToHtmlStringRGB(Palette.Accent)}>{why}</color>";
+                else prompt = $"<color=#{accent}>{why}</color>";
+            }
+            else if (cover != null && defect != null && CarryInteractor.CanHide(defect))
+            {
+                float risk = RepairRules.Obviousness(RepairState.HiddenByFurniture, defect.Severity);
+                prompt = $"{use} Hide {defect.DisplayName} behind the {cover.DisplayName}  <size=75%>(free)</size>";
+                meter = risk;
+                meterText = $"If it covers it: {risk:P0} chance to get caught";
             }
             else if (held != null)
             {
                 prompt = $"{use} Drop   {toss} Throw";
-                if (kit != null) prompt = $"Holding {RepairRules.KitName(kit.Type)}  ·  " + prompt;
+                if (kit != null) prompt = $"Holding {RepairRules.KitName(kit.Type)}: look at a defect  ·  " + prompt;
+                else if (cover != null) prompt = $"Holding {cover.DisplayName}: look at a defect to hide it  ·  " + prompt;
             }
             else if (interactor.LookPressable?.PressPrompt is string press)
             {
@@ -84,14 +94,24 @@ namespace BodgeSquad.UI
             }
             else if (interactor.LookCarryable != null)
             {
-                var k = interactor.LookCarryable.GetComponent<RepairKit>();
-                prompt = k != null && !k.Paid ? $"{use} Buy {RepairRules.KitName(k.Type)}  ${k.Price}" : $"{use} Pick up";
+                var c = interactor.LookCarryable;
+                var k = c.GetComponent<RepairKit>();
+                var conc = c.GetComponent<Concealer>();
+                if (k != null && !k.Paid) prompt = $"{use} Buy {RepairRules.KitName(k.Type)}  ${k.Price}\n<size=75%>{RepairRules.KitBlurb(k.Type)}</size>";
+                else if (k != null) prompt = $"{use} Pick up {RepairRules.KitName(k.Type)}\n<size=75%>{RepairRules.KitBlurb(k.Type)}</size>";
+                else if (conc != null) prompt = $"{use} Pick up {conc.DisplayName}\n<size=75%>Free cover: carry it to a defect and press {use} again</size>";
+                else prompt = $"{use} Pick up";
+            }
+            else if (defect != null && defect.State != RepairState.Fixed)
+            {
+                var proper = RepairRules.ProperKitFor(defect.Kind);
+                prompt = $"{defect.DisplayName}\n<size=75%>Fix: {RepairRules.KitName(proper)} ${RepairRules.Price(proper)}   ·   Hide: paint, wallpaper, tape or furniture</size>";
             }
 
             if (defect != null && meter == null)
             {
                 meter = defect.Obviousness;
-                meterText = $"{defect.DisplayName}: {RepairRules.SeverityName(defect.Severity)}  ·  {defect.Obviousness:P0} obvious";
+                meterText = $"{RepairRules.SeverityName(defect.Severity)}  ·  {defect.Obviousness:P0} chance to get caught";
             }
 
             _prompt.text = prompt;

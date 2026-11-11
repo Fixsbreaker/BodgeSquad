@@ -190,51 +190,55 @@ namespace ProjectBootstrap
             if (old != null) Object.DestroyImmediate(old);
             var decor = new GameObject("Decor").transform;
 
+            float ix = RoomDims.InX, iz = RoomDims.InZ;
             // floor tiles: a darker grid so the floor reads as worn tiles, not a flat plane
             var grout = Mat("M_FloorGrout", ((UniversalRenderPipelineAsset)UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline).defaultMaterial,
                             Color.Lerp(Palette.Floor, Palette.Trim, 0.45f), 0.1f);
             var tiles = Group(decor, "FloorGrout");
-            for (float v = -3.5f; v <= 3.51f; v += 1f)
-            {
-                Flat(tiles, "GroutX", new Vector3(0, 0.002f, v), Quaternion.Euler(90, 0, 0), new Vector2(7.85f, 0.025f), grout);
-                Flat(tiles, "GroutZ", new Vector3(v, 0.002f, 0), Quaternion.Euler(90, 0, 0), new Vector2(0.025f, 7.85f), grout);
-            }
+            for (float v = -4.5f; v <= 4.51f; v += 1f)
+                Flat(tiles, "GroutX", new Vector3(0, 0.002f, v), Quaternion.Euler(90, 0, 0), new Vector2(ix * 2, 0.025f), grout);
+            for (float v = -5.5f; v <= 5.51f; v += 1f)
+                Flat(tiles, "GroutZ", new Vector3(v, 0.002f, 0), Quaternion.Euler(90, 0, 0), new Vector2(0.025f, iz * 2), grout);
 
             // cornice along the top of every wall
             var cornice = Group(decor, "Cornice");
-            BoxD(cornice, "N", new Vector3(0, 2.74f, 3.89f), new Vector3(8f, 0.12f, 0.08f), _trim);
-            BoxD(cornice, "S", new Vector3(0, 2.74f, -3.89f), new Vector3(8f, 0.12f, 0.08f), _trim);
-            BoxD(cornice, "E", new Vector3(3.89f, 2.74f, 0), new Vector3(0.08f, 0.12f, 8f), _trim);
-            BoxD(cornice, "W", new Vector3(-3.89f, 2.74f, 0), new Vector3(0.08f, 0.12f, 8f), _trim);
+            BoxD(cornice, "N", new Vector3(0, 2.74f, iz - 0.035f), new Vector3(ix * 2, 0.12f, 0.08f), _trim);
+            BoxD(cornice, "S", new Vector3(0, 2.74f, -iz + 0.035f), new Vector3(ix * 2, 0.12f, 0.08f), _trim);
+            BoxD(cornice, "E", new Vector3(ix - 0.035f, 2.74f, 0), new Vector3(0.08f, 0.12f, iz * 2), _trim);
+            BoxD(cornice, "W", new Vector3(-ix + 0.035f, 2.74f, 0), new Vector3(0.08f, 0.12f, iz * 2), _trim);
 
             // vertical wallpaper stripes high on the walls (above every defect, below the cornice)
             var stripes = Group(decor, "WallpaperStripes");
-            for (float a = -3.6f; a <= 3.61f; a += 0.6f)
+            for (float a = -5.7f; a <= 5.71f; a += 0.6f)
             {
                 WallFlat(stripes, Vector3.forward, new Vector3(a, 2.45f, 0), new Vector2(0.12f, 0.5f), 0, _stripe, 0.003f);
                 WallFlat(stripes, Vector3.back, new Vector3(a, 2.45f, 0), new Vector2(0.12f, 0.5f), 0, _stripe, 0.003f);
+            }
+            for (float a = -4.7f; a <= 4.71f; a += 0.6f)
+            {
                 WallFlat(stripes, Vector3.right, new Vector3(0, 2.45f, a), new Vector2(0.12f, 0.5f), 0, _stripe, 0.003f);
                 WallFlat(stripes, Vector3.left, new Vector3(0, 2.45f, a), new Vector2(0.12f, 0.5f), 0, _stripe, 0.003f);
             }
-            BoxD(stripes, "PictureRail_N", new Vector3(0, 2.18f, 3.9f), new Vector3(8f, 0.05f, 0.05f), _trim);
-            BoxD(stripes, "PictureRail_S", new Vector3(0, 2.18f, -3.9f), new Vector3(8f, 0.05f, 0.05f), _trim);
-            BoxD(stripes, "PictureRail_E", new Vector3(3.9f, 2.18f, 0), new Vector3(0.05f, 0.05f, 8f), _trim);
-            BoxD(stripes, "PictureRail_W", new Vector3(-3.9f, 2.18f, 0), new Vector3(0.05f, 0.05f, 8f), _trim);
+            BoxD(stripes, "PictureRail_N", new Vector3(0, 2.18f, iz - 0.025f), new Vector3(ix * 2, 0.05f, 0.05f), _trim);
+            BoxD(stripes, "PictureRail_S", new Vector3(0, 2.18f, -iz + 0.025f), new Vector3(ix * 2, 0.05f, 0.05f), _trim);
+            BoxD(stripes, "PictureRail_E", new Vector3(ix - 0.025f, 2.18f, 0), new Vector3(0.05f, 0.05f, iz * 2), _trim);
+            BoxD(stripes, "PictureRail_W", new Vector3(-ix + 0.025f, 2.18f, 0), new Vector3(0.05f, 0.05f, iz * 2), _trim);
 
             // peeling wallpaper: torn plaster patches, kept clear of defects, window, door and shop
             var peel = Group(decor, "PeelingPatches");
-            Peel(peel, Vector3.forward, new Vector3(0.7f, 1.75f, 0), 0.9f, 12f);
-            Peel(peel, Vector3.forward, new Vector3(3.3f, 0.55f, 0), 0.6f, -20f);
-            Peel(peel, Vector3.right, new Vector3(0, 1.4f, 2.6f), 0.8f, 30f);
-            Peel(peel, Vector3.right, new Vector3(0, 0.5f, -1.0f), 0.55f, -8f);
-            Peel(peel, Vector3.back, new Vector3(0.1f, 1.7f, 0), 0.75f, 18f);
-            Peel(peel, Vector3.back, new Vector3(3.1f, 1.3f, 0), 0.6f, -25f);
-            Peel(peel, Vector3.left, new Vector3(0, 1.85f, -0.8f), 0.6f, 5f);
-            Peel(peel, Vector3.left, new Vector3(0, 0.6f, 3.0f), 0.65f, -15f);
+            Peel(peel, Vector3.back, new Vector3(-1.6f, 1.5f, 0), 0.8f, 12f);
+            Peel(peel, Vector3.back, new Vector3(3.7f, 1.3f, 0), 0.5f, -20f);
+            Peel(peel, Vector3.forward, new Vector3(0.0f, 1.6f, 0), 0.8f, 18f);
+            Peel(peel, Vector3.forward, new Vector3(4.2f, 1.2f, 0), 0.6f, -25f);
+            Peel(peel, Vector3.left, new Vector3(0, 1.5f, 3.4f), 0.7f, 30f);
+            Peel(peel, Vector3.left, new Vector3(0, 1.3f, -0.7f), 0.6f, -8f);
+            Peel(peel, Vector3.right, new Vector3(0, 1.6f, 3.6f), 0.7f, 5f);
+            Peel(peel, Vector3.right, new Vector3(0, 1.8f, -0.2f), 0.6f, -15f);
+            Peel(peel, Vector3.right, new Vector3(0, 0.8f, -4.0f), 0.5f, 22f);
 
-            // sofa: heavy, carryable, hides what's behind it (concealer). Duct-tape X on the cushion.
+            // sofa: heavy, carryable, hides low damage for free. Duct-tape X on the cushion.
             var sofa = new GameObject("Sofa").transform; sofa.SetParent(decor, false);
-            sofa.SetPositionAndRotation(new Vector3(1.2f, 0, 2.3f), Quaternion.Euler(0, 180, 0)); // faces south, back to the north wall
+            sofa.SetPositionAndRotation(new Vector3(1.8f, 0, 1.8f), Quaternion.Euler(0, 180, 0));
             Pc(sofa, "Base", new Vector3(0, 0.27f, 0), new Vector3(1.8f, 0.34f, 0.84f), _sofa);
             Pc(sofa, "Back", new Vector3(0, 0.66f, -0.31f), new Vector3(1.8f, 0.5f, 0.24f), _sofa);
             Pc(sofa, "Arm_L", new Vector3(-0.8f, 0.5f, 0.02f), new Vector3(0.24f, 0.36f, 0.82f), _sofa);
@@ -248,29 +252,59 @@ namespace ProjectBootstrap
             Flat(sofa, "TapeA", new Vector3(0.34f, 0.556f, 0.06f), Quaternion.Euler(90, 40, 0), new Vector2(0.55f, 0.08f), _tape, local: true);
             Flat(sofa, "TapeB", new Vector3(0.34f, 0.557f, 0.06f), Quaternion.Euler(90, -40, 0), new Vector2(0.55f, 0.08f), _tape, local: true);
             Flat(sofa, "TapeArm", new Vector3(-0.8f, 0.682f, 0.1f), Quaternion.Euler(90, 15, 0), new Vector2(0.2f, 0.07f), _tape, local: true);
-            MakeCarryable(sofa.gameObject, 40f, 3f, concealer: true);
+            MakeCarryable(sofa.gameObject, 40f, 3f, concealer: true, "Sofa");
+
+            // bookshelf: tall, so it hides damage up to head height
+            var shelfRoot = new GameObject("Bookshelf").transform; shelfRoot.SetParent(decor, false);
+            shelfRoot.SetPositionAndRotation(new Vector3(4.0f, 0, -0.8f), Quaternion.Euler(0, -90, 0));
+            P(shelfRoot, PrimitiveType.Cube, "Back", new Vector3(0, 0.95f, -0.16f), new Vector3(1.0f, 1.9f, 0.04f), _trim);
+            P(shelfRoot, PrimitiveType.Cube, "Side_L", new Vector3(-0.48f, 0.95f, 0), new Vector3(0.04f, 1.9f, 0.34f), _wood);
+            P(shelfRoot, PrimitiveType.Cube, "Side_R", new Vector3(0.48f, 0.95f, 0), new Vector3(0.04f, 1.9f, 0.34f), _wood);
+            var bookCols = new[] { Palette.Accent, Palette.CharacterSecondary, Palette.TintYellow, Palette.Leaf, Palette.Rug, Palette.Cream };
+            var bookMats = new Material[bookCols.Length];
+            for (int i = 0; i < bookCols.Length; i++) bookMats[i] = Mat($"M_Book{i}", _wood, bookCols[i], 0.15f);
+            var rndB = new System.Random(7);
+            foreach (var y in new[] { 0.04f, 0.45f, 0.86f, 1.27f, 1.68f, 1.88f })
+            {
+                P(shelfRoot, PrimitiveType.Cube, "Board", new Vector3(0, y, 0), new Vector3(0.96f, 0.03f, 0.32f), _wood);
+                if (y > 1.8f) continue;
+                float bx = -0.42f;
+                while (bx < 0.36f)
+                {
+                    float bw = 0.05f + (float)rndB.NextDouble() * 0.05f, bh = 0.22f + (float)rndB.NextDouble() * 0.1f;
+                    P(shelfRoot, PrimitiveType.Cube, "Book", new Vector3(bx + bw / 2, y + 0.015f + bh / 2, 0.01f), new Vector3(bw, bh, 0.24f), bookMats[rndB.Next(bookMats.Length)]);
+                    bx += bw + 0.008f;
+                    if (rndB.NextDouble() < 0.12) bx += 0.12f;
+                }
+            }
+            var shelfCol = shelfRoot.gameObject.AddComponent<BoxCollider>(); shelfCol.center = new Vector3(0, 0.95f, 0); shelfCol.size = new Vector3(1.0f, 1.9f, 0.36f);
+            MakeCarryable(shelfRoot.gameObject, 30f, 2.6f, concealer: true, "Bookshelf");
+
+            // two framed pictures lying on the floor: hang one over a crack, any height
+            Picture(decor, "Picture_Hills", new Vector3(-0.6f, 0.03f, -3.4f), 20f, Palette.AmbientSky, Palette.Leaf, Palette.TintYellow);
+            Picture(decor, "Picture_Sunset", new Vector3(5.0f, 0.03f, 2.4f), -15f, Palette.Rug, Palette.Trim, Palette.CharacterPrimary);
 
             // pink rug under the middle of the room (no collider: nothing to trip on)
-            var rug = Flat(decor, "Rug", new Vector3(0.3f, 0.004f, -0.7f), Quaternion.Euler(90, 0, 0), new Vector2(2.6f, 1.7f), _rug);
+            var rug = Flat(decor, "Rug", new Vector3(0.3f, 0.004f, -0.6f), Quaternion.Euler(90, 0, 0), new Vector2(3.2f, 2.2f), _rug);
             var rugBorder = Mat("M_RugBorder", _rug, Color.Lerp(Palette.Rug, Palette.TintYellow, 0.45f), 0f);
-            Flat(rug, "Border", new Vector3(0, 0, -0.001f), Quaternion.identity, new Vector2(0.9f, 0.85f), rugBorder, local: true);
-            Flat(rug, "Inner", new Vector3(0, 0, -0.002f), Quaternion.identity, new Vector2(0.86f, 0.78f), _rug, local: true);
+            Flat(rug, "Border", new Vector3(0, 0, -0.001f), Quaternion.identity, new Vector2(0.92f, 0.88f), rugBorder, local: true);
+            Flat(rug, "Inner", new Vector3(0, 0, -0.002f), Quaternion.identity, new Vector2(0.88f, 0.82f), _rug, local: true);
 
             // floor lamp: warm pool of light by the sofa
             var lamp = new GameObject("FloorLamp").transform; lamp.SetParent(decor, false);
-            lamp.position = new Vector3(-0.15f, 0, 2.75f);
+            lamp.position = new Vector3(0.4f, 0, 2.6f);
             P(lamp, PrimitiveType.Cylinder, "Foot", new Vector3(0, 0.02f, 0), new Vector3(0.32f, 0.02f, 0.32f), _trim);
             P(lamp, PrimitiveType.Cylinder, "Pole", new Vector3(0, 0.75f, 0), new Vector3(0.04f, 0.75f, 0.04f), _trim);
             P(lamp, PrimitiveType.Cylinder, "Shade", new Vector3(0, 1.58f, 0), new Vector3(0.46f, 0.16f, 0.46f), _lampShade);
             var lightGo = new GameObject("LampLight"); lightGo.transform.SetParent(lamp, false);
             lightGo.transform.localPosition = new Vector3(0, 1.4f, 0);
             var l = lightGo.AddComponent<Light>();
-            l.type = LightType.Point; l.color = Palette.LampLight; l.range = 3.5f; l.intensity = 1.6f; l.shadows = LightShadows.None;
+            l.type = LightType.Point; l.color = Palette.LampLight; l.range = 4f; l.intensity = 1.6f; l.shadows = LightShadows.None;
             var lampCol = lamp.gameObject.AddComponent<CapsuleCollider>(); lampCol.center = new Vector3(0, 0.85f, 0); lampCol.height = 1.7f; lampCol.radius = 0.16f;
 
-            // houseplant: light, carryable, hides low damage (concealer) — the key-art hiding spot
+            // houseplant: light, carryable, hides low damage — the key-art hiding spot
             var plant = new GameObject("Houseplant").transform; plant.SetParent(decor, false);
-            plant.position = new Vector3(-3.25f, 0, -1.3f);
+            plant.position = new Vector3(-5.2f, 0, -0.4f);
             Pc(plant, "Pot", new Vector3(0, 0.19f, 0), new Vector3(0.38f, 0.19f, 0.38f), _pot, PrimitiveType.Cylinder);
             P(plant, PrimitiveType.Cylinder, "Rim", new Vector3(0, 0.38f, 0), new Vector3(0.42f, 0.025f, 0.42f), _pot);
             for (int i = 0; i < 7; i++)
@@ -281,24 +315,20 @@ namespace ProjectBootstrap
                 leaf.localPosition = new Vector3(0, 0.58f + (i % 3) * 0.06f, 0) + leaf.localRotation * new Vector3(0, 0.12f, 0);
             }
             var foliage = plant.gameObject.AddComponent<BoxCollider>(); foliage.center = new Vector3(0, 0.75f, 0); foliage.size = new Vector3(0.6f, 0.55f, 0.6f);
-            MakeCarryable(plant.gameObject, 6f, 1.4f, concealer: true);
+            MakeCarryable(plant.gameObject, 6f, 1.4f, concealer: true, "Houseplant");
 
-            // clutter: mug + pizza box (light carryables)
-            var mug = new GameObject("Mug").transform; mug.SetParent(decor, false); mug.position = new Vector3(2.0f, 0.06f, 1.4f);
+            // clutter: mug + pizza box (light carryables, no use — just fun to throw)
+            var mug = new GameObject("Mug").transform; mug.SetParent(decor, false); mug.position = new Vector3(2.6f, 0.06f, 0.6f);
             Pc(mug, "Cup", Vector3.zero, new Vector3(0.1f, 0.06f, 0.1f), _cream, PrimitiveType.Cylinder);
             P(mug, PrimitiveType.Cube, "Handle", new Vector3(0.065f, 0, 0), new Vector3(0.03f, 0.07f, 0.02f), _cream);
             MakeCarryable(mug.gameObject, 0.3f, 1f, concealer: false);
             var pizza = new GameObject("PizzaBox").transform; pizza.SetParent(decor, false);
-            pizza.SetPositionAndRotation(new Vector3(-0.9f, 0.03f, -2.0f), Quaternion.Euler(0, 25, 0));
+            pizza.SetPositionAndRotation(new Vector3(-1.6f, 0.03f, -2.6f), Quaternion.Euler(0, 25, 0));
             Pc(pizza, "Box", Vector3.zero, new Vector3(0.42f, 0.05f, 0.42f), Mat("M_Cardboard", _wood, Color.Lerp(Palette.Plaster, Palette.Wood, 0.35f), 0f));
             P(pizza, PrimitiveType.Cube, "Logo", new Vector3(0, 0.026f, 0), new Vector3(0.18f, 0.002f, 0.18f), Mat("M_Accent", _wood, Palette.Accent, 0.3f));
             MakeCarryable(pizza.gameObject, 0.5f, 1f, concealer: false);
-            // spare duct tape roll on the floor
-            var roll = new GameObject("TapeRoll").transform; roll.SetParent(decor, false); roll.position = new Vector3(0.9f, 0.04f, -2.6f);
-            Pc(roll, "Roll", Vector3.zero, new Vector3(0.16f, 0.04f, 0.16f), _tape, PrimitiveType.Cylinder);
-            MakeCarryable(roll.gameObject, 0.3f, 1f, concealer: false);
 
-            Debug.Log("[KeyArt] Room dressed: teal wallpaper + stripes, peeling patches, cornice, tiles, sofa, rug, lamp, plant, clutter.");
+            Debug.Log("[KeyArt] Room dressed: 12x10 room, peeling wallpaper, sofa, bookshelf, 2 pictures, plant, rug, lamp, clutter.");
         }
 
         static void Peel(Transform parent, Vector3 wallNormal, Vector3 along, float size, float roll)
@@ -321,12 +351,12 @@ namespace ProjectBootstrap
         // A quad lying on the inner face of a wall. wallNormal points into the room.
         static void WallFlat(Transform parent, Vector3 wallNormal, Vector3 along, Vector2 size, float roll, Material m, float offset)
         {
-            const float inner = 3.925f;
+            float ix = RoomDims.InX, iz = RoomDims.InZ;
             Vector3 pos = along;
-            if (wallNormal == Vector3.back) pos.z = inner - offset;            // north wall faces -z
-            else if (wallNormal == Vector3.forward) { pos = new Vector3(along.x, along.y, -inner + offset); } // south wall
-            else if (wallNormal == Vector3.left) pos.x = inner - offset;       // east wall faces -x
-            else pos.x = -inner + offset;                                       // west wall
+            if (wallNormal == Vector3.back) pos.z = iz - offset;               // north wall faces -z
+            else if (wallNormal == Vector3.forward) pos.z = -iz + offset;      // south wall
+            else if (wallNormal == Vector3.left) pos.x = ix - offset;          // east wall faces -x
+            else pos.x = -ix + offset;                                          // west wall
             // Unity quads are visible from their -Z side, so look *into* the wall
             var rot = Quaternion.LookRotation(-wallNormal) * Quaternion.Euler(0, 0, roll);
             Flat(parent, "Patch", pos, rot, size, m);
@@ -336,8 +366,8 @@ namespace ProjectBootstrap
         static void Captures()
         {
             var cam = Camera.main;
-            Shot(cam, new Vector3(-3.3f, 2.4f, -3.3f), Quaternion.Euler(22, 45, 0), "Docs/keyart_overview.png");
-            Shot(cam, new Vector3(-1.2f, 1.6f, 1.2f), Quaternion.Euler(8, -15, 0), "Docs/keyart_supplies.png");
+            Shot(cam, new Vector3(-5.5f, 2.65f, -4.5f), Quaternion.Euler(24, 48, 0), "Docs/keyart_overview.png");
+            Shot(cam, new Vector3(-3.0f, 1.6f, 2.0f), Quaternion.Euler(10, -20, 0), "Docs/keyart_supplies.png");
 
             // line-up: the four bodgers + inspector facing the camera (not saved)
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
@@ -365,6 +395,16 @@ namespace ProjectBootstrap
             insp.transform.SetPositionAndRotation(inspPos, inspRot);
             insp.gameObject.SetActive(wasActive);
             foreach (var p in spawned) Object.DestroyImmediate(p);
+
+            // free cover mock (not saved): a picture over the high crack, the bookshelf over the hole
+            var defects = Object.FindObjectsByType<BodgeSquad.Job.Defect>();
+            BodgeSquad.Job.Defect Find(string label) { foreach (var d in defects) if (d.Label == label) return d; return null; }
+            var pic = GameObject.Find("Picture_Hills").GetComponent<Concealer>();
+            var shelf = GameObject.Find("Bookshelf").GetComponent<Concealer>();
+            bool a = pic.PlaceAgainst(Find("east wall, up high"));
+            bool b = shelf.PlaceAgainst(Find("east wall"));
+            Debug.Log($"[KeyArt] Mock cover: picture covers={a}, bookshelf covers={b}");
+            Shot(cam, new Vector3(1.6f, 1.6f, -1.2f), Quaternion.Euler(6, 75, 0), "Docs/keyart_cover.png");
         }
 
         static void Shot(Camera cam, Vector3 pos, Quaternion rot, string file)
@@ -385,12 +425,30 @@ namespace ProjectBootstrap
         }
 
         // ------------------------------------------------------------------ helpers
-        static void MakeCarryable(GameObject go, float mass, float weight, bool concealer)
+        static void MakeCarryable(GameObject go, float mass, float weight, bool concealer, string displayName = null, bool wallHung = false)
         {
             var rb = go.AddComponent<Rigidbody>(); rb.mass = mass; rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             var c = go.AddComponent<Carryable>();
             var so = new SerializedObject(c); so.FindProperty("carryWeight").floatValue = weight; so.ApplyModifiedPropertiesWithoutUndo();
-            if (concealer) go.AddComponent<Concealer>();
+            if (!concealer) return;
+            var con = go.AddComponent<Concealer>();
+            var cso = new SerializedObject(con);
+            cso.FindProperty("displayName").stringValue = displayName ?? go.name;
+            cso.FindProperty("wallHung").boolValue = wallHung;
+            cso.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // A framed picture (front = local +Z), lying face-up on the floor.
+        static void Picture(Transform parent, string name, Vector3 pos, float yaw, Color sky, Color ground, Color sun)
+        {
+            var root = new GameObject(name).transform; root.SetParent(parent, false);
+            root.SetPositionAndRotation(pos, Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(-90, 0, 0));
+            P(root, PrimitiveType.Cube, "Frame", Vector3.zero, new Vector3(0.92f, 0.74f, 0.04f), _trim);
+            Flat(root, "Sky", new Vector3(0, 0.08f, 0.021f), Quaternion.Euler(0, 180, 0), new Vector2(0.8f, 0.46f), Mat($"M_{name}_Sky", _wood, sky, 0.1f), local: true);
+            Flat(root, "Ground", new Vector3(0, -0.22f, 0.022f), Quaternion.Euler(0, 180, 0), new Vector2(0.8f, 0.17f), Mat($"M_{name}_Ground", _wood, ground, 0.1f), local: true);
+            Flat(root, "Sun", new Vector3(0.2f, 0.14f, 0.023f), Quaternion.Euler(0, 180, 0), new Vector2(0.12f, 0.12f), Mat($"M_{name}_Sun", _wood, sun, 0.1f), local: true);
+            var col = root.gameObject.AddComponent<BoxCollider>(); col.size = new Vector3(0.92f, 0.74f, 0.05f);
+            MakeCarryable(root.gameObject, 2f, 1f, concealer: true, "Picture", wallHung: true);
         }
 
         static void Recolor(Transform t, Material m)

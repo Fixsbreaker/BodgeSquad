@@ -54,83 +54,78 @@ namespace ProjectBootstrap
             PatchPlayerPrefab();
 
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-            var room = GameObject.Find("LookDevRoom").transform;
-            var frame = room.Find("WindowFrame");
-            if (frame != null && frame.Find("Glass") == null)
-            {
-                // the dark slab read as a blackboard: give it glass and mullions so it reads as a window
-                var g = Prim(frame, PrimitiveType.Cube, "Glass", new Vector3(0, 0, -0.6f), new Vector3(0.9f, 0.88f, 0.2f), _glass, false);
-                Prim(frame, PrimitiveType.Cube, "MullionV", new Vector3(0, 0, -0.9f), new Vector3(0.05f, 0.9f, 0.3f), _trim, false);
-                Prim(frame, PrimitiveType.Cube, "MullionH", new Vector3(0, 0, -0.9f), new Vector3(0.9f, 0.06f, 0.3f), _trim, false);
-            }
-            var oldFlag = room.Find("InspectorFlag");
-            if (oldFlag != null) Object.DestroyImmediate(oldFlag.gameObject); // the real flags come from the inspector now
-
+            var room = BuildShell();
             var slice = GameObject.Find("JobSlice");
             if (slice != null) Object.DestroyImmediate(slice);
             var root = new GameObject("JobSlice").transform;
 
             // --- defects ------------------------------------------------------------------------
             var defects = new GameObject("Defects").transform; defects.SetParent(root, false);
-            MakeDefect(defects, "north wall", DefectKind.Crack, Severity.Cosmetic, new Vector3(2.4f, 1.6f, 3.92f), Vector3.back);
-            MakeDefect(defects, "east wall", DefectKind.Hole, Severity.FutureFailure, new Vector3(3.92f, 0.9f, 0.6f), Vector3.left);
-            MakeDefect(defects, "south wall", DefectKind.Mould, Severity.FutureFailure, new Vector3(1.6f, 0.45f, -3.92f), Vector3.forward);
-            MakeDefect(defects, "west wall", DefectKind.ExposedWiring, Severity.Safety, new Vector3(-3.92f, 1.2f, 1.0f), Vector3.right);
-            MakeDefect(defects, "east wall, up high", DefectKind.Crack, Severity.Cosmetic, new Vector3(3.92f, 1.95f, -2.2f), Vector3.left);
+            const float X = RoomDims.DX, Z = RoomDims.DZ;
+            MakeDefect(defects, "north wall", DefectKind.Crack, Severity.Cosmetic, new Vector3(2.6f, 1.7f, Z), Vector3.back);
+            MakeDefect(defects, "north corner", DefectKind.Mould, Severity.FutureFailure, new Vector3(4.6f, 0.45f, Z), Vector3.back);
+            MakeDefect(defects, "east wall", DefectKind.Hole, Severity.FutureFailure, new Vector3(X, 0.9f, 1.2f), Vector3.left);
+            MakeDefect(defects, "east wall, up high", DefectKind.Crack, Severity.Cosmetic, new Vector3(X, 2.0f, -2.6f), Vector3.left);
+            MakeDefect(defects, "south wall", DefectKind.Mould, Severity.FutureFailure, new Vector3(2.0f, 0.45f, -Z), Vector3.forward);
+            MakeDefect(defects, "west wall", DefectKind.ExposedWiring, Severity.Safety, new Vector3(-X, 1.2f, 1.8f), Vector3.right);
+            MakeDefect(defects, "west wall, low", DefectKind.Hole, Severity.FutureFailure, new Vector3(-X, 0.7f, -2.2f), Vector3.right);
 
             // --- door, entrance, doorbell -------------------------------------------------------
             var door = new GameObject("FrontDoor").transform; door.SetParent(root, false);
-            Box(door, "Frame_L", new Vector3(-2.55f, 1.05f, -3.9f), new Vector3(0.1f, 2.1f, 0.12f), _trim);
-            Box(door, "Frame_R", new Vector3(-1.45f, 1.05f, -3.9f), new Vector3(0.1f, 2.1f, 0.12f), _trim);
-            Box(door, "Frame_Top", new Vector3(-2.0f, 2.12f, -3.9f), new Vector3(1.2f, 0.1f, 0.12f), _trim);
-            Box(door, "Door", new Vector3(-2.0f, 1.03f, -3.89f), new Vector3(1.0f, 2.06f, 0.06f), _wood);
-            Box(door, "Handle", new Vector3(-1.62f, 1.0f, -3.84f), new Vector3(0.12f, 0.04f, 0.05f), _ink);
+            float sz = -(RoomDims.InZ - 0.025f);
+            Box(door, "Frame_L", new Vector3(-4.05f, 1.05f, sz), new Vector3(0.1f, 2.1f, 0.12f), _trim);
+            Box(door, "Frame_R", new Vector3(-2.95f, 1.05f, sz), new Vector3(0.1f, 2.1f, 0.12f), _trim);
+            Box(door, "Frame_Top", new Vector3(-3.5f, 2.12f, sz), new Vector3(1.2f, 0.1f, 0.12f), _trim);
+            Box(door, "Door", new Vector3(-3.5f, 1.03f, sz + 0.01f), new Vector3(1.0f, 2.06f, 0.06f), _wood);
+            Box(door, "Handle", new Vector3(-3.12f, 1.0f, sz + 0.06f), new Vector3(0.12f, 0.04f, 0.05f), _ink);
             var entrance = new GameObject("InspectorEntrance").transform; entrance.SetParent(door, false);
-            entrance.position = new Vector3(-2.0f, 0f, -3.3f); entrance.rotation = Quaternion.LookRotation(Vector3.forward);
+            entrance.position = new Vector3(-3.5f, 0f, sz + 0.6f); entrance.rotation = Quaternion.LookRotation(Vector3.forward);
 
-            var bell = Box(root, "Doorbell", new Vector3(-1.05f, 1.35f, -3.89f), new Vector3(0.22f, 0.3f, 0.06f), _ink);
+            var bell = Box(root, "Doorbell", new Vector3(-2.55f, 1.35f, sz + 0.01f), new Vector3(0.22f, 0.3f, 0.06f), _ink);
             var button = Prim(bell, PrimitiveType.Cylinder, "Button", new Vector3(0, 0.1f, 0.6f), new Vector3(0.45f, 0.4f, 0.3f), _accent, keepCollider: false);
             button.localRotation = Quaternion.Euler(90, 0, 0);
             var bellC = bell.gameObject.AddComponent<Doorbell>();
             Set(bellC, "button", button);
-            Card(root, "DoorbellCard", new Vector3(-1.05f, 1.68f, -3.9f), Quaternion.Euler(0, 180, 0), new Vector2(0.62f, 0.3f));
-            WorldText(root, "DoorbellLabel", "CALL\nINSPECTOR", new Vector3(-1.05f, 1.68f, -3.85f), Quaternion.Euler(0, 180, 0), 1.1f, Palette.UiInk);
+            Card(root, "DoorbellCard", new Vector3(-2.55f, 1.72f, sz - 0.005f), Quaternion.Euler(0, 180, 0), new Vector2(0.62f, 0.3f));
+            WorldText(root, "DoorbellLabel", "CALL\nINSPECTOR", new Vector3(-2.55f, 1.72f, sz + 0.04f), Quaternion.Euler(0, 180, 0), 1.1f, Palette.UiInk);
 
             // --- supplies shelf on the north wall -----------------------------------------------
             var shop = new GameObject("Supplies").transform; shop.SetParent(root, false);
-            Box(shop, "Table", new Vector3(-2.0f, 0.82f, 3.55f), new Vector3(3.2f, 0.08f, 0.6f), _wood);
-            foreach (var x in new[] { -3.5f, -0.5f }) foreach (var z in new[] { 3.3f, 3.8f })
+            Box(shop, "Table", new Vector3(-3.8f, 0.82f, 4.55f), new Vector3(3.2f, 0.08f, 0.6f), _wood);
+            foreach (var x in new[] { -5.3f, -2.3f }) foreach (var z in new[] { 4.3f, 4.8f })
                 Box(shop, "Leg", new Vector3(x, 0.39f, z), new Vector3(0.07f, 0.78f, 0.07f), _trim);
-            Card(shop, "SignBoard", new Vector3(-2.0f, 2.35f, 3.91f), Quaternion.identity, new Vector2(2.9f, 0.42f));
-            WorldText(shop, "Sign", "SUPPLIES  <size=70%>(pay on pickup)</size>", new Vector3(-2.0f, 2.35f, 3.88f), Quaternion.identity, 2.2f, Palette.UiInk);
+            Card(shop, "SignBoard", new Vector3(-3.8f, 2.35f, RoomDims.InZ - 0.015f), Quaternion.identity, new Vector2(2.9f, 0.42f));
+            WorldText(shop, "Sign", "SUPPLIES  <size=70%>(pay on pickup)</size>", new Vector3(-3.8f, 2.35f, RoomDims.InZ - 0.045f), Quaternion.identity, 2.2f, Palette.UiInk);
             KitType[] order = { KitType.Filler, KitType.AntiMould, KitType.WiringKit, KitType.PaintTin, KitType.WallpaperRoll, KitType.DuctTape };
             for (int i = 0; i < order.Length; i++)
             {
-                float x = -3.25f + i * 0.5f;
+                float x = -5.05f + i * 0.5f;
                 var shelf = new GameObject($"Shelf_{order[i]}").transform; shelf.SetParent(shop, false);
-                shelf.position = new Vector3(x, 0.86f, 3.5f);
+                shelf.position = new Vector3(x, 0.86f, 4.5f);
                 var slot = new GameObject("Slot").transform; slot.SetParent(shelf, false);
                 slot.localPosition = new Vector3(0, 0.16f, 0);
-                Card(shelf, "TagCard", new Vector3(x, 1.25f, 3.315f), Quaternion.identity, new Vector2(0.46f, 0.3f));
-                var tag = WorldText(shelf, "PriceTag", "", new Vector3(x, 1.25f, 3.3f), Quaternion.identity, 0.75f,
+                Card(shelf, "TagCard", new Vector3(x, 1.28f, 4.315f), Quaternion.identity, new Vector2(0.46f, 0.3f));
+                var tag = WorldText(shelf, "PriceTag", "", new Vector3(x, 1.28f, 4.3f), Quaternion.identity, 0.62f,
                                     RepairRules.IsProperFix(order[i]) ? Palette.CharacterSecondary : Palette.Accent);
                 var s = shelf.gameObject.AddComponent<SupplyShelf>();
                 Set(s, "kitPrefab", kits[(int)order[i]]);
                 Set(s, "slot", slot);
                 Set(s, "priceTag", tag);
                 tag.text = $"{RepairRules.KitName(order[i])}\n<b>${RepairRules.Price(order[i])}</b>";
+                tag.rectTransform.sizeDelta = new Vector2(0.46f, 0.3f);
                 var so = new SerializedObject(s); so.FindProperty("kit").enumValueIndex = (int)order[i]; so.ApplyModifiedPropertiesWithoutUndo();
             }
 
             // --- wardrobe: shove it in front of damage -------------------------------------------
-            var wardrobe = Box(root, "Wardrobe", new Vector3(-0.6f, 0.9f, 0.4f), new Vector3(1.0f, 1.8f, 0.5f), _wood);
+            var wardrobe = Box(root, "Wardrobe", new Vector3(-1.0f, 0.9f, 0.8f), new Vector3(1.0f, 1.8f, 0.5f), _wood);
             Prim(wardrobe, PrimitiveType.Cube, "DoorLine", new Vector3(0, 0, 0.51f), new Vector3(0.015f, 0.95f, 0.02f), _trim, false);
             Prim(wardrobe, PrimitiveType.Cube, "Knob_L", new Vector3(-0.06f, 0.05f, 0.53f), new Vector3(0.03f, 0.03f, 0.04f), _ink, false);
             Prim(wardrobe, PrimitiveType.Cube, "Knob_R", new Vector3(0.06f, 0.05f, 0.53f), new Vector3(0.03f, 0.03f, 0.04f), _ink, false);
             var wrb = wardrobe.gameObject.AddComponent<Rigidbody>(); wrb.mass = 40f; wrb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             var wc = wardrobe.gameObject.AddComponent<Carryable>();
             var wso = new SerializedObject(wc); wso.FindProperty("carryWeight").floatValue = 3f; wso.ApplyModifiedPropertiesWithoutUndo();
-            wardrobe.gameObject.AddComponent<Concealer>();
+            var wcon = wardrobe.gameObject.AddComponent<Concealer>();
+            var wcso = new SerializedObject(wcon); wcso.FindProperty("displayName").stringValue = "Wardrobe"; wcso.ApplyModifiedPropertiesWithoutUndo();
 
             // --- inspector -----------------------------------------------------------------------
             var insp = new GameObject("Inspector").transform; insp.SetParent(root, false);
@@ -175,17 +170,85 @@ namespace ProjectBootstrap
             var jobGo = new GameObject("Job"); jobGo.transform.SetParent(root, false);
             var job = jobGo.AddComponent<JobManager>();
             Set(job, "inspector", inspector);
+            var guard = jobGo.AddComponent<PlayAreaGuard>();
+            Set(guard, "spawnRoot", GameObject.Find("SpawnPoints").transform);
+            var gso = new SerializedObject(guard);
+            gso.FindProperty("halfExtents").vector3Value = new Vector3(RoomDims.InX - 0.05f, 3.2f, RoomDims.InZ - 0.05f);
+            gso.ApplyModifiedPropertiesWithoutUndo();
             var hud = jobGo.AddComponent<JobHud>();
             Set(hud, "players", Object.FindAnyObjectByType<PlayerInputManager>());
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             AssetDatabase.SaveAssets();
-            Debug.Log("[JobSetup] Scene saved with JobSlice (5 defects, 6 supplies, doorbell, wardrobe, inspector, HUD).");
+            Debug.Log("[JobSetup] Scene saved with JobSlice (7 defects, 6 supplies, doorbell, wardrobe, inspector, HUD).");
 
             Capture(scene, flag, tick);
             Debug.Log("[JobSetup] Done.");
             EditorApplication.Exit(0);
+        }
+
+        // ------------------------------------------------------------------ room shell (12 x 10 m)
+        static Transform BuildShell()
+        {
+            var old = GameObject.Find("LookDevRoom");
+            if (old != null) Object.DestroyImmediate(old);
+            var room = new GameObject("LookDevRoom").transform;
+            float hx = RoomDims.HX, hz = RoomDims.HZ, h = RoomDims.Height, w = RoomDims.Wall;
+            var floorMat = Load("M_Floor");
+            Box(room, "Floor", new Vector3(0, -0.05f, 0), new Vector3(hx * 2, 0.1f, hz * 2), floorMat);
+            Box(room, "Wall_North", new Vector3(0, h / 2, hz), new Vector3(hx * 2 + w, h, w), _walls);
+            Box(room, "Wall_South", new Vector3(0, h / 2, -hz), new Vector3(hx * 2 + w, h, w), _walls);
+            Box(room, "Wall_East", new Vector3(hx, h / 2, 0), new Vector3(w, h, hz * 2 + w), _walls);
+            Box(room, "Wall_West", new Vector3(-hx, h / 2, 0), new Vector3(w, h, hz * 2 + w), _walls);
+            float bx = RoomDims.InX - 0.03f, bz = RoomDims.InZ - 0.03f;
+            Box(room, "Baseboard_North", new Vector3(0, 0.06f, bz), new Vector3(hx * 2, 0.12f, 0.06f), _trim);
+            Box(room, "Baseboard_South", new Vector3(0, 0.06f, -bz), new Vector3(hx * 2, 0.12f, 0.06f), _trim);
+            Box(room, "Baseboard_East", new Vector3(bx, 0.06f, 0), new Vector3(0.06f, 0.12f, hz * 2), _trim);
+            Box(room, "Baseboard_West", new Vector3(-bx, 0.06f, 0), new Vector3(0.06f, 0.12f, hz * 2), _trim);
+
+            // invisible lid: nobody jumps (or throws a sofa) out of the house
+            var lid = new GameObject("Ceiling_Invisible", typeof(BoxCollider)).transform;
+            lid.SetParent(room, false);
+            lid.position = new Vector3(0, h + 0.05f, 0);
+            lid.localScale = new Vector3(hx * 2 + 1f, 0.1f, hz * 2 + 1f);
+
+            // window on the north wall
+            var frame = Box(room, "WindowFrame", new Vector3(0f, 1.6f, RoomDims.InZ - 0.04f), new Vector3(1.4f, 1.1f, 0.08f), _trim);
+            Prim(frame, PrimitiveType.Cube, "Glass", new Vector3(0, 0, -0.6f), new Vector3(0.9f, 0.88f, 0.2f), _glass, false);
+            Prim(frame, PrimitiveType.Cube, "MullionV", new Vector3(0, 0, -0.9f), new Vector3(0.05f, 0.9f, 0.3f), _trim, false);
+            Prim(frame, PrimitiveType.Cube, "MullionH", new Vector3(0, 0, -0.9f), new Vector3(0.9f, 0.06f, 0.3f), _trim, false);
+
+            // loose props
+            var crate = Box(room, "Crate", new Vector3(3.6f, 0.35f, 3.4f), new Vector3(0.8f, 0.7f, 0.8f), _wood);
+            crate.rotation = Quaternion.Euler(0, 7, 0);
+            Carry(crate.gameObject, 6f, 1.6f);
+            var plank = Box(room, "Plank", new Vector3(1.0f, 0.9f, RoomDims.InZ - 0.2f), new Vector3(0.25f, 1.8f, 0.06f), _wood);
+            plank.rotation = Quaternion.Euler(-9, 0, 12);
+            Carry(plank.gameObject, 3f, 1.2f);
+
+            // spawns near the front door, facing into the room
+            var spawns = GameObject.Find("SpawnPoints")?.transform;
+            if (spawns == null) { spawns = new GameObject("SpawnPoints").transform; }
+            var pts = new[] { new Vector3(-3.6f, 0, -3.2f), new Vector3(-2.2f, 0, -3.2f), new Vector3(-3.6f, 0, -1.9f), new Vector3(-2.2f, 0, -1.9f) };
+            for (int i = 0; i < pts.Length; i++)
+            {
+                var sp = i < spawns.childCount ? spawns.GetChild(i) : new GameObject($"Spawn_P{i + 1}").transform;
+                sp.SetParent(spawns, false);
+                sp.position = pts[i];
+                sp.rotation = Quaternion.LookRotation(new Vector3(1.5f, 0, 2.5f) - pts[i]);
+            }
+
+            var cam = Camera.main;
+            cam.transform.SetPositionAndRotation(new Vector3(-5.4f, 2.6f, -4.4f), Quaternion.Euler(22, 45, 0));
+            return room;
+        }
+
+        static void Carry(GameObject go, float mass, float weight)
+        {
+            var rb = go.AddComponent<Rigidbody>(); rb.mass = mass; rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            var c = go.AddComponent<Carryable>();
+            var so = new SerializedObject(c); so.FindProperty("carryWeight").floatValue = weight; so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         // ------------------------------------------------------------------ defects
@@ -349,8 +412,8 @@ namespace ProjectBootstrap
         static void Capture(UnityEngine.SceneManagement.Scene scene, GameObject flag, GameObject tick)
         {
             var cam = Camera.main;
-            Shot(cam, new Vector3(-3.3f, 2.4f, -3.3f), Quaternion.Euler(22, 45, 0), "Docs/slice_overview.png");
-            Shot(cam, new Vector3(-1.2f, 1.6f, 1.2f), Quaternion.Euler(8, -15, 0), "Docs/slice_supplies.png");
+            Shot(cam, new Vector3(-5.4f, 2.6f, -4.4f), Quaternion.Euler(22, 45, 0), "Docs/slice_overview.png");
+            Shot(cam, new Vector3(-3.0f, 1.6f, 2.2f), Quaternion.Euler(8, -15, 0), "Docs/slice_supplies.png");
 
             // Mock the end of a job (not saved): some bodges, a flag and a tick
             var defects = Object.FindObjectsByType<Defect>();
@@ -365,7 +428,7 @@ namespace ProjectBootstrap
                 if (d.Kind == DefectKind.Hole) { d.Reveal(); Object.Instantiate(flag, d.transform.position + d.transform.forward * 0.12f + Vector3.up * 0.25f, Quaternion.LookRotation(d.transform.forward)); }
                 if (d.Kind == DefectKind.Mould) Object.Instantiate(tick, d.transform.position + d.transform.forward * 0.12f + Vector3.up * 0.25f, Quaternion.LookRotation(d.transform.forward));
             }
-            Shot(cam, new Vector3(1.0f, 1.5f, -1.5f), Quaternion.Euler(10, 70, 0), "Docs/slice_flagged.png");
+            Shot(cam, new Vector3(2.8f, 1.5f, -0.5f), Quaternion.Euler(10, 70, 0), "Docs/slice_flagged.png");
         }
 
         static void Shot(Camera cam, Vector3 pos, Quaternion rot, string file)

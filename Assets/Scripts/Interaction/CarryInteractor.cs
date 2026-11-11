@@ -83,6 +83,16 @@ namespace BodgeSquad.Interaction
         void OnInteract()
         {
             var kit = _held != null ? _held.GetComponent<RepairKit>() : null;
+            var cover = _held != null ? _held.GetComponent<Concealer>() : null;
+            if (cover != null && LookDefect != null && CanHide(LookDefect))
+            {
+                var d = LookDefect;
+                Release(Vector3.zero);
+                bool covers = cover.PlaceAgainst(d);
+                Flash(covers ? $"{d.DisplayName} hidden behind the {cover.DisplayName}"
+                             : $"The {cover.DisplayName} is too small to hide that one");
+                return;
+            }
             if (kit != null && LookDefect != null)
             {
                 if (LookDefect.CanApply(kit.Type, out var why) && LookDefect.Apply(kit.Type, PlayerIndex))
@@ -119,6 +129,7 @@ namespace BodgeSquad.Interaction
 
             _held = c;
             c.Holder = transform;
+            c.Body.isKinematic = false; // pictures hang kinematic on the wall
             c.Body.useGravity = false;
             c.Body.interpolation = RigidbodyInterpolation.Interpolate;
             Debug.Log($"[Carry] {name} picked up {c.name}");
@@ -133,6 +144,9 @@ namespace BodgeSquad.Interaction
             if (velocity != Vector3.zero) c.Body.linearVelocity = velocity;
             Debug.Log($"[Carry] {name} {(velocity == Vector3.zero ? "dropped" : "threw")} {c.name}");
         }
+
+        public static bool CanHide(Defect d) =>
+            d.State != RepairState.Fixed && (JobManager.Instance == null || JobManager.Instance.Phase == JobPhase.Renovation);
 
         void Flash(string msg)
         {

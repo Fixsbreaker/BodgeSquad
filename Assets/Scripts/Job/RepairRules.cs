@@ -41,6 +41,26 @@ namespace BodgeSquad.Job
             _ => k.ToString(),
         };
 
+        // One line on the shelf / in the prompt: what this item actually does.
+        public static string KitBlurb(KitType k) => k switch
+        {
+            KitType.Filler => "Properly fixes cracks and holes",
+            KitType.AntiMould => "Properly fixes mould",
+            KitType.WiringKit => "Properly fixes exposed wiring",
+            KitType.PaintTin => "Hides anything (risky)",
+            KitType.WallpaperRoll => "Hides anything (less risky)",
+            KitType.DuctTape => "Hides anything (very risky)",
+            _ => "",
+        };
+
+        public static string KindName(DefectKind d) => d switch
+        {
+            DefectKind.ExposedWiring => "Exposed wiring",
+            DefectKind.Mould => "Mould",
+            DefectKind.Hole => "Hole",
+            _ => "Crack",
+        };
+
         public static bool IsProperFix(KitType k) => k is KitType.Filler or KitType.AntiMould or KitType.WiringKit;
 
         // Which proper kit actually fixes which defect.
