@@ -20,8 +20,12 @@ namespace BodgeSquad.UI
         RectTransform _rootRect;
         readonly Vector3[] _corners = new Vector3[8];
 
-        void Start()
+        void Start() => Build();
+
+        // Also rebuilt if Unity reloads scripts mid-play (that wipes these fields)
+        void Build()
         {
+            if (_canvasGo != null) Destroy(_canvasGo);
             // Lives at scene root on the UI layer: the player's own body layer is culled by its camera.
             var canvas = UiKit.Canvas($"PlayerHudCanvas_{name}", null, RenderMode.ScreenSpaceCamera, playerCamera, 10);
             _canvasGo = canvas.gameObject;
@@ -100,7 +104,8 @@ namespace BodgeSquad.UI
 
         void Update()
         {
-            if (_prompt == null || interactor == null) return;
+            if (interactor == null) return;
+            if (_prompt == null || _brackets == null) { Build(); return; }
             bool kb = interactor.UsesKeyboard;
             string use = kb ? "[E]" : "[Y]";
             string toss = kb ? "[LMB]" : "[X]";

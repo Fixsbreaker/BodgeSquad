@@ -268,6 +268,7 @@ namespace BodgeSquad.Interaction
 
         // ------------------------------------------------------------ test hooks (smoke test)
         public void TestGrab(Carryable c) => TryGrab(c);
+        public Transform Eye => eye;
         // Sweep the held tool over a whole defect, as a player would, for `seconds` of use
         public void TestSweep(Defect d, float seconds)
         {
@@ -313,6 +314,7 @@ namespace BodgeSquad.Interaction
             IgnoreSelf(c, true);
             c.Body.useGravity = false;
             c.Body.isKinematic = false; // pictures hang kinematic on the wall
+            c.Body.constraints = RigidbodyConstraints.None; // shelf stock is frozen until picked up
             c.Body.interpolation = RigidbodyInterpolation.Interpolate;
             Debug.Log($"[Carry] {name} picked up {c.name}");
         }

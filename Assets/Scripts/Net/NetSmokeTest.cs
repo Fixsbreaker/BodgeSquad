@@ -36,6 +36,33 @@ namespace BodgeSquad.Net
             var job = JobManager.Instance;
             Debug.Log($"[Smoke] I am P{me.Index + 1}; players seen: {NetworkBodger.All.Count}; budget {job.Budget}");
 
+            // Pick-up from awkward angles: stand 1.4 m from the houseplant and look at it from above, side, low
+            var carryTest = me.GetComponent<CarryInteractor>();
+            var fpcTest = me.GetComponent<FirstPersonController>();
+            var plant = GameObject.Find("Houseplant");
+            if (plant != null)
+            {
+                int ok = 0, total = 0;
+                foreach (var (dir, height) in new[] { (Vector3.back, 0f), (Vector3.left, 0f), (Vector3.forward, 0f), (Vector3.right, 0f), (new Vector3(1, 0, 1).normalized, 0f) })
+                {
+                    var p = plant.transform.position;
+                    var spot = new Vector3(p.x, 0f, p.z) - dir * 1.4f;
+                    spot.x = Mathf.Clamp(spot.x, -5.5f, 5.5f); spot.z = Mathf.Clamp(spot.z, -4.5f, 4.5f);
+                    fpcTest.Teleport(spot, Quaternion.LookRotation(new Vector3(p.x - spot.x, 0, p.z - spot.z)));
+                    fpcTest.enabled = false;
+                    yield return null;
+                    var b = plant.GetComponentInChildren<Renderer>().bounds;
+                    carryTest.Eye.LookAt(b.center);
+                    yield return null; yield return null;
+                    total++;
+                    bool seen = carryTest.LookCarryable != null && carryTest.LookCarryable.gameObject == plant;
+                    if (seen) ok++;
+                    Debug.Log($"[Smoke] Look at plant from {dir}: {(seen ? "can grab" : "NOT grabbable")} (pitch {carryTest.Eye.eulerAngles.x:0})");
+                    fpcTest.enabled = true;
+                }
+                Debug.Log($"[Smoke] Grab angles OK {ok}/{total}");
+            }
+
             RepairKit filler = null;
             foreach (var k in FindObjectsByType<RepairKit>()) if (k.Type == KitType.Filler && !k.Paid) filler = k;
             if (filler == null) { Debug.LogError("[Smoke] FAIL: no filler on the shelf"); yield break; }

@@ -81,6 +81,7 @@ namespace BodgeSquad.Job
         public void Place(KitType kit, RaycastHit hit, float size, float roll)
         {
             var m = new Mark { Size = size, Roll = roll, Kit = (byte)kit, Parent = World, Pos = hit.point, Normal = hit.normal };
+            if (hit.rigidbody != null && hit.rigidbody.GetComponent<RepairKit>() != null) return; // not on tins and rolls
             var no = hit.rigidbody != null ? hit.rigidbody.GetComponent<NetworkObject>() : null;
             if (no != null && no.IsSpawned)
             {
@@ -121,6 +122,23 @@ namespace BodgeSquad.Job
             }
         }
 
+        // An unscaled child that follows the object: marks under it never stretch or shear,
+        // even on a box scaled 1 x 1.8 x 0.5 like the wardrobe.
+        static Transform Anchor(Transform target)
+        {
+            var a = target.Find("__marks");
+            if (a == null)
+            {
+                a = new GameObject("__marks").transform;
+                a.SetParent(target, false);
+            }
+            var s = target.lossyScale;
+            a.localPosition = Vector3.zero;
+            a.localRotation = Quaternion.identity;
+            a.localScale = new Vector3(1f / Mathf.Max(s.x, 0.001f), 1f / Mathf.Max(s.y, 0.001f), 1f / Mathf.Max(s.z, 0.001f));
+            return a;
+        }
+
         void ClearDrawn()
         {
             foreach (var g in _drawn) if (g != null) Destroy(g);
@@ -133,18 +151,20 @@ namespace BodgeSquad.Job
             Destroy(q.GetComponent<Collider>());
             q.name = "Mark";
             Transform parent = _root;
-            if (m.Parent != World && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(m.Parent, out var no)) parent = no.transform;
+            Vector3 pos = m.Pos;
+            if (m.Parent != World && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(m.Parent, out var no))
+            {
+                parent = Anchor(no.transform);
+                pos = Vector3.Scale(m.Pos, no.transform.lossyScale); // stored in the object's scaled space
+            }
             q.transform.SetParent(parent, false);
             var n = m.Normal.sqrMagnitude > 0.01f ? m.Normal.normalized : Vector3.up;
             _layerBump = (_layerBump + 1) % 12;
-            q.transform.localPosition = m.Pos + n * (0.004f + _layerBump * 0.0005f);
+            q.transform.localPosition = pos + n * (0.004f + _layerBump * 0.0005f);
             // quads show their -Z side: look into the surface
             q.transform.localRotation = Quaternion.LookRotation(-n, Mathf.Abs(n.y) > 0.9f ? Vector3.forward : Vector3.up) * Quaternion.Euler(0, 0, m.Roll);
             var kit = (KitType)m.Kit;
-            var scale = kit == KitType.DuctTape ? new Vector3(m.Size, m.Size * 0.18f, 1) : new Vector3(m.Size, m.Size * 0.9f, 1);
-            // undo a parent's scale so marks keep their size on scaled furniture
-            var ps = parent.lossyScale;
-            q.transform.localScale = new Vector3(scale.x / Mathf.Max(ps.x, 0.001f), scale.y / Mathf.Max(ps.y, 0.001f), 1f / Mathf.Max(ps.z, 0.001f));
+            q.transform.localScale = kit == KitType.DuctTape ? new Vector3(m.Size, m.Size * 0.18f, 1) : new Vector3(m.Size, m.Size * 0.9f, 1);
             var r = q.GetComponent<Renderer>();
             int k = Mathf.Clamp(m.Kit, 0, kitMaterials.Length - 1);
             if (kitMaterials.Length > 0 && kitMaterials[k] != null) r.sharedMaterial = kitMaterials[k];

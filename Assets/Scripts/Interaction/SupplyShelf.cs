@@ -30,7 +30,7 @@ namespace BodgeSquad.Interaction
         void Update()
         {
             if (!IsHost) { _stocked = null; return; }
-            if (_stocked != null && (_stocked.Paid || (_stocked.transform.position - slot.position).sqrMagnitude > 0.25f))
+            if (_stocked != null && (_stocked.Paid || !_stocked.IsSpawned || (_stocked.transform.position - slot.position).sqrMagnitude > 0.25f))
             {
                 _stocked = null;
                 _restockAt = Time.time + restockDelay;
@@ -49,6 +49,8 @@ namespace BodgeSquad.Interaction
             no.DontDestroyWithOwner = true;
             no.Spawn(destroyWithScene: true);
             _stocked = go.GetComponent<RepairKit>();
+            // stands still on the shelf (round rolls used to roll off and get restocked forever)
+            go.GetComponent<Rigidbody>().constraints = RigidbodyConstraints.FreezeAll;
         }
 
         // Host, new job: forget the old stock so a fresh one appears
