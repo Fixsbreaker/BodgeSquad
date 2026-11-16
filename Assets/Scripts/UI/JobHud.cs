@@ -44,10 +44,10 @@ namespace BodgeSquad.UI
             string y = Hex(Palette.TintYellow), r = Hex(Palette.Accent), g = Hex(Palette.Pass), b = Hex(Palette.PlayerTints[2]);
             helpText.text =
                 $"<size=125%><b><color=#{y}>HOW TO PLAY</color></b></size>\n" +
-                $"<b>Goal:</b> get the house past the inspector. Deal with every defect on the <b>work order</b>, then ring the <b>doorbell</b>. Every red flag costs you money.\n\n" +
+                $"<b>Goal:</b> get the house past the inspector. Find the cracks, holes, mould and bad wiring, deal with them, then ring the <b>doorbell</b>. Every red flag costs you money.\n\n" +
                 $"<color=#{y}>1.</color> Grab an item from the <b>SUPPLIES</b> table. Picking it up pays for it from the shared budget.\n" +
                 $"     <color=#{b}>Blue tag</color> = proper fix (safe, expensive).   <color=#{r}>Red tag</color> = bodge (cheap, might get caught).\n" +
-                $"<color=#{y}>2.</color> Do the work yourself: look at a defect, <b>hold [LMB]</b> and sweep to fill, spray or paint. Tape: <b>click</b> per strip.\n" +
+                $"<color=#{y}>2.</color> Do the work yourself: <b>hold [LMB]</b> and sweep the tool over the damage (works on anything). Tape: <b>click</b> per strip.\n" +
                 $"     Gaps you miss stay visible. Tools run dry as you use them, so don't waste them.\n" +
                 $"<color=#{y}>3.</color> <color=#{g}><b>Free trick:</b></color> push furniture in front of a defect, or carry a picture to a wall and press <b>[E]</b> to hang it.\n" +
                 $"<color=#{y}>4.</color> The meter next to the crosshair shows the chance the inspector catches it.\n\n" +
@@ -103,8 +103,7 @@ namespace BodgeSquad.UI
             _help.SetActive(!lobby && inGame && (_helpToggled || Time.time < _autoHelpUntil));
             _top.transform.parent.gameObject.SetActive(!lobby);
             _helpHint.gameObject.SetActive(!lobby && inGame);
-            _orderPanel.SetActive(!lobby && job.Phase != JobPhase.Results);
-            if (Time.time >= _nextOrderRefresh) { _nextOrderRefresh = Time.time + 0.25f; RefreshOrder(job); }
+            _orderPanel.SetActive(false); // no checklist: finding the damage is part of the job
             if (Time.time > _feedUntil) _feed.text = "";
 
             string money = $"BUDGET <b>${job.Budget}</b>   SPENT ${job.Spent}";

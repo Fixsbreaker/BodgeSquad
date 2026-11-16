@@ -120,16 +120,15 @@ namespace BodgeSquad.UI
                 bool click = RepairRules.Mode(kit.Type) == RepairRules.ToolMode.Click;
                 string how = click ? $"{work} {RepairRules.UseVerb(kit.Type)}" : $"Hold {work} and sweep to {RepairRules.UseVerb(kit.Type)}";
                 string left = $"{RepairRules.KitName(kit.Type)} left: {(click ? $"{Mathf.CeilToInt(kit.Left * RepairRules.Capacity(kit.Type))} strips" : $"{kit.Left:P0}")}";
-                if (defect != null && !defect.CanUse(kit.Type, out var why))
-                    prompt = $"<color=#{accent}>{why}</color>\n<size=75%>{left}   ·   {use} Drop</size>";
-                else if (defect != null)
+                if (defect != null && defect.State != RepairState.Fixed)
                 {
-                    string progress = RepairRules.IsProperFix(kit.Type)
-                        ? $"fixed {defect.FixProgress:P0} (needs {RepairRules.FixThreshold:P0})"
+                    bool wrongFix = RepairRules.IsProperFix(kit.Type) && RepairRules.ProperKitFor(defect.Kind) != kit.Type;
+                    string progress = wrongFix ? $"<color=#{accent}>won't fix {RepairRules.KindName(defect.Kind)}, it just smears over it</color>"
+                        : RepairRules.IsProperFix(kit.Type) ? $"fixed {defect.FixProgress:P0} (needs {RepairRules.FixThreshold:P0})"
                         : $"covered {defect.Coverage:P0}";
                     prompt = $"{how}  ·  {progress}\n<size=75%>{left}   ·   {use} Drop</size>";
                 }
-                else prompt = $"{how} over a defect\n<size=75%>{left}   ·   {use} Drop</size>";
+                else prompt = $"{how} on anything\n<size=75%>{left}   ·   {use} Drop</size>";
             }
             else if (cover != null && cover.WallHung)
             {

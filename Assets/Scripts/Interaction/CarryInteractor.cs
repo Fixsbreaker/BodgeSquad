@@ -45,13 +45,14 @@ namespace BodgeSquad.Interaction
         public RepairKit HeldKit => _held != null && _held.TryGetComponent<RepairKit>(out var k) ? k : null;
         public bool Working { get; private set; }     // tool is touching a surface this frame
 
-        [SerializeField] float toolReach = 2.0f;
+        [SerializeField] float toolReach = 3.5f;
         readonly System.Collections.Generic.Dictionary<Defect, ulong> _pendingCells = new();
         float _nextSend;
 
         void Awake()
         {
-            reach = Mathf.Max(reach, 3f);
+            reach = Mathf.Max(reach, 3.5f);
+            toolReach = Mathf.Max(toolReach, 3.5f);
             dropDistance = Mathf.Max(dropDistance, 3f);
             _input = GetComponent<BodgerInput>();
             _bodger = GetComponent<NetworkBodger>();
@@ -147,6 +148,11 @@ namespace BodgeSquad.Interaction
         }
 
         // ------------------------------------------------------------ hands-on tools
+        // Tools work on anything: walls, floor, furniture. Every stroke leaves a mark everyone sees;
+        // strokes that land on a defect also cover its cells (that's what the inspector judges).
+        float _nextMark;
+        Vector3 _lastMark;
+
         void UseTool(RepairKit kit)
         {
             Working = false;
@@ -157,21 +163,27 @@ namespace BodgeSquad.Interaction
             if (!active) return;
             if (!Physics.Raycast(eye.position, eye.forward, out var hit, toolReach, _rayMask, QueryTriggerInteraction.Ignore) || hit.rigidbody == _held.Body)
             {
-                if (click) Flash("Too far: get closer to the wall");
+                if (click) Flash("Too far: get closer");
                 return;
             }
             Working = true;
             kit.Spend(click ? 1f : Time.deltaTime); // every second (or strip) counts, on target or not
 
-            foreach (var d in job.Defects)
+            // the visible stroke
+            float brushM = Mathf.Max(0.08f, RepairRules.Brush(kit.Type) * 0.1f * 2f);
+            if (click)
             {
-                if ((d.transform.position - hit.point).sqrMagnitude > 0.8f * 0.8f) continue;
-                if (!d.CanUse(kit.Type, out var why)) { if (click || Time.frameCount % 40 == 0) Flash(why); continue; }
-                ulong cells = click ? d.StripMask(hit.point, Random.Range(-18f, 18f)) : d.BrushMask(hit.point, RepairRules.Brush(kit.Type));
-                if (cells == 0) continue;
-                _pendingCells.TryGetValue(d, out var acc);
-                _pendingCells[d] = acc | cells;
+                float roll = Random.Range(-25f, 25f);
+                SurfaceMarks.Instance?.Place(kit.Type, hit, 0.42f, roll);
+                CoverDefects(kit.Type, hit.point, roll, click: true);
             }
+            else if (Time.time >= _nextMark || (hit.point - _lastMark).sqrMagnitude > brushM * brushM * 0.25f)
+            {
+                _nextMark = Time.time + 0.07f;
+                _lastMark = hit.point;
+                SurfaceMarks.Instance?.Place(kit.Type, hit, brushM * Random.Range(0.9f, 1.15f), Random.Range(0f, 360f));
+            }
+            if (!click) CoverDefects(kit.Type, hit.point, 0f, click: false);
 
             if (kit.Empty)
             {
@@ -182,6 +194,21 @@ namespace BodgeSquad.Interaction
                 ConsumeRpc(new NetworkObjectReference(used.NetworkObject));
                 Flash($"{RepairRules.KitName(kit.Type)} ran out. Buy another");
                 Working = false;
+            }
+        }
+
+        void CoverDefects(KitType kit, Vector3 point, float roll, bool click)
+        {
+            var job = JobManager.Instance;
+            if (job == null) return;
+            foreach (var d in job.Defects)
+            {
+                if ((d.transform.position - point).sqrMagnitude > 0.9f * 0.9f) continue;
+                if (d.State == RepairState.Fixed) continue;
+                ulong cells = click ? d.StripMask(point, roll) : d.BrushMask(point, RepairRules.Brush(kit));
+                if (cells == 0) continue;
+                _pendingCells.TryGetValue(d, out var acc);
+                _pendingCells[d] = acc | cells;
             }
         }
 
@@ -203,8 +230,12 @@ namespace BodgeSquad.Interaction
         {
             if (!defectRef.TryGet(out var no) || !no.TryGetComponent<Defect>(out var d)) return;
             var kit = (KitType)kitType;
-            if (!d.CanUse(kit, out _)) return;
-            d.AddCells(RepairRules.LayerOf(kit), cells, PlayerIndex);
+            var job = JobManager.Instance;
+            if (job != null && job.Phase != JobPhase.Renovation) return;
+            if (d.State == RepairState.Fixed) return;
+            // the right kit really fixes it; any other proper kit just smears over it, like paint
+            var layer = RepairRules.IsProperFix(kit) && RepairRules.ProperKitFor(d.Kind) != kit ? RepairRules.Layer.Paint : RepairRules.LayerOf(kit);
+            d.AddCells(layer, cells, PlayerIndex);
         }
 
         [Rpc(SendTo.Server)]
