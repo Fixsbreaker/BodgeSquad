@@ -82,7 +82,7 @@ namespace BodgeSquad.Job
                 yield return Face(d.transform.position);
 
                 var state = d.EffectiveState;
-                float risk = RepairRules.Obviousness(state, d.Severity);
+                float risk = d.Obviousness; // from how much is actually covered, and with what
                 job.Say(state == RepairState.HiddenByFurniture
                     ? $"Inspector peers behind the furniture at the {d.Label}…"
                     : $"Inspector taps the {d.Label}…");

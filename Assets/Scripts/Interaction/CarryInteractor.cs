@@ -5,13 +5,15 @@ using UnityEngine;
 
 namespace BodgeSquad.Interaction
 {
-    // Interact (E / Y), in priority order:
-    //   holding furniture/picture + looking at a defect → snap it in front of the defect (free cover)
-    //   holding a repair kit + looking at a defect     → use the kit on it
-    //   holding anything                               → drop it
-    //   looking at a pressable (doorbell)               → press it
-    //   looking at a carryable                          → pick it up (the host charges for unpaid kits)
-    // Attack (LMB / X) while holding: throw.
+    // Interact (E / Y):
+    //   holding a picture + looking at a wall → hang it right there
+    //   holding anything                      → drop it
+    //   looking at a pressable (doorbell)      → press it
+    //   looking at a carryable                 → pick it up (the host charges for unpaid kits)
+    // Attack (LMB / X):
+    //   holding a tool → work with it by hand: hold and sweep to paint/fill/spray, click to tape.
+    //                    Cells you sweep get covered; the tool runs dry as you use it (even on misses).
+    //   holding anything else → throw it.
     // Online: the local player asks the host to pick something up; the host checks it's free and
     // affordable, then hands over ownership so this machine drives its physics while carrying.
     public class CarryInteractor : NetworkBehaviour
@@ -40,6 +42,12 @@ namespace BodgeSquad.Interaction
         public Carryable LookCarryable { get; private set; }
         public IPressable LookPressable { get; private set; }
         public string Message { get; private set; }   // short-lived feedback ("Not enough money")
+        public RepairKit HeldKit => _held != null && _held.TryGetComponent<RepairKit>(out var k) ? k : null;
+        public bool Working { get; private set; }     // tool is touching a surface this frame
+
+        [SerializeField] float toolReach = 2.0f;
+        readonly System.Collections.Generic.Dictionary<Defect, ulong> _pendingCells = new();
+        float _nextSend;
 
         void Awake()
         {
@@ -57,8 +65,11 @@ namespace BodgeSquad.Interaction
             if (Time.time > _messageUntil) Message = null;
 
             if (_input.InteractPressed()) OnInteract();
+            else if (HeldKit != null) UseTool(HeldKit);
             else if (_held != null && _input.AttackPressed())
                 Release(eye.forward * throwSpeed / _held.CarryWeight);
+            if (HeldKit == null) Working = false;
+            FlushCells();
         }
 
         readonly RaycastHit[] _hits = new RaycastHit[16];
@@ -83,27 +94,14 @@ namespace BodgeSquad.Interaction
 
         void OnInteract()
         {
-            var kit = _held != null ? _held.GetComponent<RepairKit>() : null;
             var cover = _held != null ? _held.GetComponent<Concealer>() : null;
-            if (cover != null && LookDefect != null && CanHide(LookDefect))
+            if (cover != null && cover.WallHung && Physics.Raycast(eye.position, eye.forward, out var wall, reach, _rayMask, QueryTriggerInteraction.Ignore)
+                && wall.rigidbody != _held.Body && Mathf.Abs(wall.normal.y) < 0.3f)
             {
-                var d = LookDefect;
+                var c = _held;
                 Release(Vector3.zero);
-                bool covers = cover.PlaceAgainst(d);
-                Flash(covers ? $"{d.DisplayName} hidden behind the {cover.DisplayName}"
-                             : $"The {cover.DisplayName} is too small to hide that one");
-                return;
-            }
-            if (kit != null && LookDefect != null)
-            {
-                if (LookDefect.CanApply(kit.Type, out var why))
-                {
-                    var used = _held;
-                    DropLocal(Vector3.zero);
-                    used.gameObject.SetActive(false); // vanish now; the host despawns it
-                    ApplyKitRpc(new NetworkObjectReference(LookDefect.NetworkObject), new NetworkObjectReference(used.NetworkObject));
-                }
-                else Flash(why);
+                cover.HangAt(wall.point, wall.normal);
+                Flash("Hung on the wall");
                 return;
             }
             if (_held != null) { Release(Vector3.zero); return; }
@@ -111,12 +109,83 @@ namespace BodgeSquad.Interaction
             if (LookCarryable != null) TryGrab(LookCarryable);
         }
 
+        // ------------------------------------------------------------ hands-on tools
+        void UseTool(RepairKit kit)
+        {
+            Working = false;
+            var job = JobManager.Instance;
+            if (job != null && job.Phase != JobPhase.Renovation) return;
+            bool click = RepairRules.Mode(kit.Type) == RepairRules.ToolMode.Click;
+            bool active = click ? _input.AttackPressed() : _input.AttackHeld();
+            if (!active) return;
+            if (!Physics.Raycast(eye.position, eye.forward, out var hit, toolReach, _rayMask, QueryTriggerInteraction.Ignore) || hit.rigidbody == _held.Body)
+            {
+                if (click) Flash("Too far: get closer to the wall");
+                return;
+            }
+            Working = true;
+            kit.Spend(click ? 1f : Time.deltaTime); // every second (or strip) counts, on target or not
+
+            foreach (var d in job.Defects)
+            {
+                if ((d.transform.position - hit.point).sqrMagnitude > 0.8f * 0.8f) continue;
+                if (!d.CanUse(kit.Type, out var why)) { if (click || Time.frameCount % 40 == 0) Flash(why); continue; }
+                ulong cells = click ? d.StripMask(hit.point, Random.Range(-18f, 18f)) : d.BrushMask(hit.point, RepairRules.Brush(kit.Type));
+                if (cells == 0) continue;
+                _pendingCells.TryGetValue(d, out var acc);
+                _pendingCells[d] = acc | cells;
+            }
+
+            if (kit.Empty)
+            {
+                FlushCells(force: true);
+                var used = _held;
+                DropLocal(Vector3.zero);
+                used.gameObject.SetActive(false);
+                ConsumeRpc(new NetworkObjectReference(used.NetworkObject));
+                Flash($"{RepairRules.KitName(kit.Type)} ran out. Buy another");
+                Working = false;
+            }
+        }
+
+        // Batch covered cells to the host a few times a second
+        void FlushCells(bool force = false)
+        {
+            if (_pendingCells.Count == 0 || (!force && Time.time < _nextSend)) return;
+            _nextSend = Time.time + 0.08f;
+            var kit = HeldKit;
+            int type = kit != null ? (int)kit.Type : _lastKitType;
+            foreach (var kv in _pendingCells)
+                if (kv.Key != null && kv.Key.IsSpawned) PaintRpc(new NetworkObjectReference(kv.Key.NetworkObject), type, kv.Value);
+            _pendingCells.Clear();
+        }
+        int _lastKitType;
+
+        [Rpc(SendTo.Server)]
+        void PaintRpc(NetworkObjectReference defectRef, int kitType, ulong cells)
+        {
+            if (!defectRef.TryGet(out var no) || !no.TryGetComponent<Defect>(out var d)) return;
+            var kit = (KitType)kitType;
+            if (!d.CanUse(kit, out _)) return;
+            d.AddCells(RepairRules.LayerOf(kit), cells, PlayerIndex);
+        }
+
+        [Rpc(SendTo.Server)]
+        void ConsumeRpc(NetworkObjectReference kitRef)
+        {
+            if (kitRef.TryGet(out var no) && no.IsSpawned) no.Despawn(true);
+        }
+
         void FixedUpdate()
         {
             if (!IsOwner || _held == null || !_held.IsOwner) return;
             var rb = _held.Body;
             if (rb.isKinematic) rb.isKinematic = false;
-            Vector3 toTarget = holdPoint.position - rb.worldCenterOfMass;
+            // tools are held close, in the right hand; bigger things out in front
+            Vector3 target = _held.TryGetComponent<RepairKit>(out _)
+                ? eye.position + eye.forward * 0.6f + eye.right * 0.28f - eye.up * 0.22f
+                : holdPoint.position;
+            Vector3 toTarget = target - rb.worldCenterOfMass;
             if (toTarget.magnitude > dropDistance) { Release(Vector3.zero); return; }
 
             Vector3 desired = Vector3.ClampMagnitude(toTarget * followStrength / _held.CarryWeight, maxCarrySpeed);
@@ -126,13 +195,13 @@ namespace BodgeSquad.Interaction
 
         // ------------------------------------------------------------ test hooks (smoke test)
         public void TestGrab(Carryable c) => TryGrab(c);
-        public void TestUseHeldOn(Defect d)
+        // Sweep the held tool over a whole defect, as a player would, for `seconds` of use
+        public void TestSweep(Defect d, float seconds)
         {
-            if (_held == null || !_held.TryGetComponent<RepairKit>(out var kit) || !d.CanApply(kit.Type, out _)) return;
-            var used = _held;
-            DropLocal(Vector3.zero);
-            used.gameObject.SetActive(false);
-            ApplyKitRpc(new NetworkObjectReference(d.NetworkObject), new NetworkObjectReference(used.NetworkObject));
+            var kit = HeldKit;
+            if (kit == null) return;
+            kit.Spend(seconds);
+            PaintRpc(new NetworkObjectReference(d.NetworkObject), (int)kit.Type, ulong.MaxValue);
         }
 
         // ------------------------------------------------------------ grab
@@ -178,6 +247,7 @@ namespace BodgeSquad.Interaction
         void DropLocal(Vector3 velocity)
         {
             var c = _held;
+            if (c != null && c.TryGetComponent<RepairKit>(out var k)) { _lastKitType = (int)k.Type; FlushCells(force: true); }
             _held = null;
             if (c == null) return;
             c.Holder = null;
@@ -199,16 +269,6 @@ namespace BodgeSquad.Interaction
         {
             if (itemRef.TryGet(out var no) && no.TryGetComponent<Carryable>(out var c) && c.HolderClient.Value == p.Receive.SenderClientId)
                 c.HolderClient.Value = Carryable.NoHolder;
-        }
-
-        // ------------------------------------------------------------ use a kit
-        [Rpc(SendTo.Server)]
-        void ApplyKitRpc(NetworkObjectReference defectRef, NetworkObjectReference kitRef, RpcParams p = default)
-        {
-            if (!kitRef.TryGet(out var kitNo) || !kitNo.TryGetComponent<RepairKit>(out var kit)) return;
-            bool ok = defectRef.TryGet(out var dNo) && dNo.TryGetComponent<Defect>(out var d) && d.Apply(kit.Type, PlayerIndex);
-            if (!ok) { FlashRpc("Too late for that"); }
-            kitNo.Despawn(true); // consumed either way: it's been opened
         }
 
         [Rpc(SendTo.Owner)]

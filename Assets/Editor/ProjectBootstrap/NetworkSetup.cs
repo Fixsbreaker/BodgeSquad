@@ -242,6 +242,31 @@ namespace ProjectBootstrap
             EditorApplication.Exit(report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded ? 0 : 1);
         }
 
+        // Edit-time look at hand-applied coverage (not saved)
+        public static void CaptureCoverage()
+        {
+            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            Defect Find(string label) { foreach (var d in Object.FindObjectsByType<Defect>()) if (d.Label == label) return d; return null; }
+            var hole = Find("east wall"); var crackHigh = Find("east wall, up high");
+            // a sloppy paint job: top-left two thirds only, plus a couple of tape strips
+            ulong paint = 0; for (int y = 3; y < 8; y++) for (int x = 0; x < 6; x++) paint |= 1UL << (y * 8 + x);
+            hole.PreviewMasks(0, paint, 0, hole.StripMask(hole.transform.position + hole.transform.up * -0.2f, 10f));
+            ulong fill = 0; for (int i = 0; i < 40; i++) fill |= 1UL << (i * 7 % 64);
+            crackHigh.PreviewMasks(fill, 0, 0, 0);
+            var cam = Camera.main;
+            cam.transform.SetPositionAndRotation(new Vector3(4.55f, 1.25f, 0.6f), Quaternion.LookRotation(new Vector3(1f, -0.12f, 0.35f)));
+            const int w = 1600, h = 900;
+            var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32);
+            cam.targetTexture = rt;
+            for (int i = 0; i < 4; i++) cam.Render();
+            RenderTexture.active = rt;
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, w, h), 0, 0); tex.Apply();
+            File.WriteAllBytes("Docs/coverage.png", tex.EncodeToPNG());
+            Debug.Log($"[NetSetup] Coverage shot: hole covered {hole.Coverage:P0} risk {hole.Obviousness:P0}; crack fixed {crackHigh.FixProgress:P0}");
+            EditorApplication.Exit(0);
+        }
+
         static void MakeNetworkCarryable(GameObject go)
         {
             var no = Ensure<NetworkObject>(go);

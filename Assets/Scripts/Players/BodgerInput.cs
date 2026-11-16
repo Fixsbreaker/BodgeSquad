@@ -59,5 +59,6 @@ namespace BodgeSquad.Players
         public bool SprintHeld() => !Blocked && Sprint.IsPressed();
         public bool InteractPressed() => !Blocked && Interact.WasPressedThisFrame();
         public bool AttackPressed() => !Blocked && Attack.WasPressedThisFrame();
+        public bool AttackHeld() => !Blocked && Attack.IsPressed();
     }
 }

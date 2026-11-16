@@ -49,9 +49,9 @@ namespace BodgeSquad.Net
 
             Defect crack = null;
             foreach (var d in job.Defects) if (d.Kind == DefectKind.Crack) { crack = d; break; }
-            carry.TestUseHeldOn(crack);
+            carry.TestSweep(crack, 3f);
             yield return new WaitForSeconds(1.5f);
-            Debug.Log($"[Smoke] {crack.DisplayName} state seen here: {crack.State} by P{crack.ResponsiblePlayer + 1}");
+            Debug.Log($"[Smoke] {crack.DisplayName} state seen here: {crack.State} (fixed {crack.FixProgress:P0}) by P{crack.ResponsiblePlayer + 1}; filler left {(carry.HeldKit != null ? carry.HeldKit.Left : -1f):P0}");
 
             job.RingDoorbellRpc(me.Index);
             yield return new WaitForSeconds(2f);

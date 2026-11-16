@@ -63,30 +63,31 @@ namespace BodgeSquad.UI
             string meterText = null;
             string accent = ColorUtility.ToHtmlStringRGB(Palette.Accent);
 
-            if (kit != null && defect != null)
+            string work = kb ? "[LMB]" : "[X]";
+            if (kit != null)
             {
-                if (defect.CanApply(kit.Type, out var why))
+                bool click = RepairRules.Mode(kit.Type) == RepairRules.ToolMode.Click;
+                string how = click ? $"{work} {RepairRules.UseVerb(kit.Type)}" : $"Hold {work} and sweep to {RepairRules.UseVerb(kit.Type)}";
+                string left = $"{RepairRules.KitName(kit.Type)} left: {(click ? $"{Mathf.CeilToInt(kit.Left * RepairRules.Capacity(kit.Type))} strips" : $"{kit.Left:P0}")}";
+                if (defect != null && !defect.CanUse(kit.Type, out var why))
+                    prompt = $"<color=#{accent}>{why}</color>\n<size=75%>{left}   ·   {use} Drop</size>";
+                else if (defect != null)
                 {
-                    var after = RepairRules.IsProperFix(kit.Type) ? RepairState.Fixed : RepairRules.ConcealWith(kit.Type);
-                    float risk = RepairRules.Obviousness(after, defect.Severity);
-                    prompt = $"{use} {(after == RepairState.Fixed ? "Fix" : "Hide")} {defect.DisplayName} with {RepairRules.KitName(kit.Type)}";
-                    meter = risk;
-                    meterText = $"After: {risk:P0} chance to get caught";
+                    string progress = RepairRules.IsProperFix(kit.Type)
+                        ? $"fixed {defect.FixProgress:P0} (needs {RepairRules.FixThreshold:P0})"
+                        : $"covered {defect.Coverage:P0}";
+                    prompt = $"{how}  ·  {progress}\n<size=75%>{left}   ·   {use} Drop</size>";
                 }
-                else prompt = $"<color=#{accent}>{why}</color>";
+                else prompt = $"{how} over a defect\n<size=75%>{left}   ·   {use} Drop</size>";
             }
-            else if (cover != null && defect != null && CarryInteractor.CanHide(defect))
+            else if (cover != null && cover.WallHung)
             {
-                float risk = RepairRules.Obviousness(RepairState.HiddenByFurniture, defect.Severity);
-                prompt = $"{use} Hide {defect.DisplayName} behind the {cover.DisplayName}  <size=75%>(free)</size>";
-                meter = risk;
-                meterText = $"If it covers it: {risk:P0} chance to get caught";
+                prompt = $"{use} Hang it on the wall where you look   {toss} Throw";
             }
             else if (held != null)
             {
                 prompt = $"{use} Drop   {toss} Throw";
-                if (kit != null) prompt = $"Holding {RepairRules.KitName(kit.Type)}: look at a defect  ·  " + prompt;
-                else if (cover != null) prompt = $"Holding {cover.DisplayName}: look at a defect to hide it  ·  " + prompt;
+                if (cover != null) prompt = $"Holding the {cover.DisplayName}: put it down in front of a defect  ·  " + prompt;
             }
             else if (interactor.LookPressable?.PressPrompt is string press)
             {
@@ -99,13 +100,15 @@ namespace BodgeSquad.UI
                 var conc = c.GetComponent<Concealer>();
                 if (k != null && !k.Paid) prompt = $"{use} Buy {RepairRules.KitName(k.Type)}  ${k.Price}\n<size=75%>{RepairRules.KitBlurb(k.Type)}</size>";
                 else if (k != null) prompt = $"{use} Pick up {RepairRules.KitName(k.Type)}\n<size=75%>{RepairRules.KitBlurb(k.Type)}</size>";
-                else if (conc != null) prompt = $"{use} Pick up {conc.DisplayName}\n<size=75%>Free cover: carry it to a defect and press {use} again</size>";
+                else if (conc != null) prompt = conc.WallHung
+                    ? $"{use} Pick up {conc.DisplayName}\n<size=75%>Free cover: hang it over a defect</size>"
+                    : $"{use} Pick up {conc.DisplayName}\n<size=75%>Free cover: put it down in front of a defect</size>";
                 else prompt = $"{use} Pick up";
             }
             else if (defect != null && defect.State != RepairState.Fixed)
             {
                 var proper = RepairRules.ProperKitFor(defect.Kind);
-                prompt = $"{defect.DisplayName}\n<size=75%>Fix: {RepairRules.KitName(proper)} ${RepairRules.Price(proper)}   ·   Hide: paint, wallpaper, tape or furniture</size>";
+                prompt = $"{defect.DisplayName}  ·  covered {defect.Coverage:P0}\n<size=75%>Fix: {RepairRules.KitName(proper)} ${RepairRules.Price(proper)}   ·   Hide: paint, wallpaper, tape or furniture</size>";
             }
 
             if (defect != null && meter == null)

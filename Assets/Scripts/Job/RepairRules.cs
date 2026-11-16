@@ -41,15 +41,76 @@ namespace BodgeSquad.Job
             _ => k.ToString(),
         };
 
+        // ---- hands-on tools ------------------------------------------------------------------
+        // Every defect is a grid of cells you cover by hand. A tool paints a round brush (Hold)
+        // or sticks one strip per click (Click); it has a fixed amount of use, then it's empty.
+        public const int GridSize = 8;          // 8 x 8 cells over the 0.8 m defect patch
+        public const float FixThreshold = 0.9f; // a proper fix counts once 90% is done
+
+        public enum ToolMode { Hold, Click }
+        public enum Layer { Fix = 0, Paint = 1, Wallpaper = 2, Tape = 3 }
+
+        public static ToolMode Mode(KitType k) => k == KitType.DuctTape ? ToolMode.Click : ToolMode.Hold;
+
+        // Brush radius in cells
+        public static float Brush(KitType k) => k switch
+        {
+            KitType.Filler => 1.0f,
+            KitType.AntiMould => 1.4f,
+            KitType.WiringKit => 0.9f,
+            KitType.PaintTin => 1.3f,
+            KitType.WallpaperRoll => 1.8f,
+            _ => 0f,
+        };
+
+        // How long a Hold tool lasts while you hold the button (seconds), or strips for Click tools
+        public static float Capacity(KitType k) => k switch
+        {
+            KitType.Filler => 9f,
+            KitType.AntiMould => 7f,
+            KitType.WiringKit => 8f,
+            KitType.PaintTin => 6f,
+            KitType.WallpaperRoll => 4.5f,
+            KitType.DuctTape => 8f,
+            _ => 1f,
+        };
+
+        public static Layer LayerOf(KitType k) => k switch
+        {
+            KitType.PaintTin => Layer.Paint,
+            KitType.WallpaperRoll => Layer.Wallpaper,
+            KitType.DuctTape => Layer.Tape,
+            _ => Layer.Fix,
+        };
+
+        public static string UseVerb(KitType k) => k switch
+        {
+            KitType.Filler => "fill",
+            KitType.AntiMould => "spray",
+            KitType.WiringKit => "rewire",
+            KitType.PaintTin => "paint",
+            KitType.WallpaperRoll => "paper over",
+            KitType.DuctTape => "stick a strip",
+            _ => "use",
+        };
+
+        public static RepairState StateOf(Layer l) => l switch
+        {
+            Layer.Paint => RepairState.PaintedOver,
+            Layer.Wallpaper => RepairState.Wallpapered,
+            Layer.Tape => RepairState.Taped,
+            _ => RepairState.Fixed,
+        };
+
         // One line on the shelf / in the prompt: what this item actually does.
         public static string KitBlurb(KitType k) => k switch
         {
-            KitType.Filler => "Properly fixes cracks and holes",
-            KitType.AntiMould => "Properly fixes mould",
-            KitType.WiringKit => "Properly fixes exposed wiring",
-            KitType.PaintTin => "Hides anything (risky)",
-            KitType.WallpaperRoll => "Hides anything (less risky)",
-            KitType.DuctTape => "Hides anything (very risky)",
+            KitType.Filler => "Properly fixes cracks and holes. Hold to fill",
+            KitType.AntiMould => "Properly fixes mould. Hold to spray",
+            KitType.WiringKit => "Properly fixes exposed wiring. Hold to work",
+            KitType.PaintTin => "Hides anything (risky). Hold to paint",
+            KitType.WallpaperRoll => "Hides anything (less risky). Hold to paper",
+            KitType.DuctTape => "Hides anything (very risky). 8 strips",
             _ => "",
         };
 

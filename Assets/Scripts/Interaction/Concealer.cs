@@ -16,6 +16,21 @@ namespace BodgeSquad.Interaction
         public string DisplayName => displayName;
         public bool WallHung => wallHung;
 
+        // Owner: hang a picture flat on the wall where the player is looking
+        public void HangAt(Vector3 point, Vector3 normal)
+        {
+            var rb = GetComponent<Rigidbody>();
+            rb.isKinematic = true;
+            var rot = Quaternion.LookRotation(normal, Vector3.up);
+            var pos = point + normal * 0.06f; // clear of the wall so the defect check sees it
+            transform.SetPositionAndRotation(pos, rot);
+            rb.position = pos; rb.rotation = rot;
+            rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero;
+            Physics.SyncTransforms();
+            Debug.Log($"[Concealer] {displayName} hung at {pos}");
+        }
+
+        // Edit-time captures: put it straight in front of a defect.
         // Returns true if, once placed, it really covers the defect.
         public bool PlaceAgainst(Defect d)
         {

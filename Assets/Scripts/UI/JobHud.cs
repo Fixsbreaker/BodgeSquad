@@ -47,10 +47,11 @@ namespace BodgeSquad.UI
                 $"<b>Goal:</b> get the house past the inspector. Deal with every defect on the <b>work order</b>, then ring the <b>doorbell</b>. Every red flag costs you money.\n\n" +
                 $"<color=#{y}>1.</color> Grab an item from the <b>SUPPLIES</b> table. Picking it up pays for it from the shared budget.\n" +
                 $"     <color=#{b}>Blue tag</color> = proper fix (safe, expensive).   <color=#{r}>Red tag</color> = bodge (cheap, might get caught).\n" +
-                $"<color=#{y}>2.</color> Look at a defect (the crosshair turns red) and press <b>[E] / (Y)</b> to use the item on it.\n" +
-                $"<color=#{y}>3.</color> <color=#{g}><b>Free trick:</b></color> pick up furniture or a picture, look at a defect and press <b>[E]</b> to hide it behind it.\n" +
+                $"<color=#{y}>2.</color> Do the work yourself: look at a defect, <b>hold [LMB]</b> and sweep to fill, spray or paint. Tape: <b>click</b> per strip.\n" +
+                $"     Gaps you miss stay visible. Tools run dry as you use them, so don't waste them.\n" +
+                $"<color=#{y}>3.</color> <color=#{g}><b>Free trick:</b></color> push furniture in front of a defect, or carry a picture to a wall and press <b>[E]</b> to hang it.\n" +
                 $"<color=#{y}>4.</color> The meter next to the crosshair shows the chance the inspector catches it.\n\n" +
-                $"<size=85%>Move <b>WASD</b> · Look <b>mouse</b> · Run <b>Shift</b> · Jump <b>Space</b> · Use/Grab/Drop <b>E</b> · Throw <b>LMB</b> · Help <b>Tab</b>     Gamepad: <b>Y</b> use · <b>X</b> throw · <b>Select</b> help</size>";
+                $"<size=85%>Move <b>WASD</b> · Look <b>mouse</b> · Run <b>Shift</b> · Jump <b>Space</b> · Grab/Drop <b>E</b> · Work/Throw <b>LMB</b> · Help <b>Tab</b>     Gamepad: <b>Y</b> grab · <b>X</b> work/throw · <b>Select</b> help</size>";
             _help.SetActive(false);
             _helpHint = UiKit.Text("HelpHint", root, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-16, 10), new Vector2(520, 40), 24, TextAlignmentOptions.BottomRight);
             _helpHint.text = "[Tab] / (Select)  How to play";
@@ -165,13 +166,15 @@ namespace BodgeSquad.UI
                 {
                     mark = "<color=#888888>[  ]</color>";
                     var k = RepairRules.ProperKitFor(d.Kind);
-                    note = $"<color=#AAAAAA>needs {RepairRules.KitName(k)}</color>";
+                    note = d.FixProgress > 0f
+                        ? $"<color=#{Hex(Palette.TintYellow)}>fixing {d.FixProgress:P0}</color>"
+                        : $"<color=#AAAAAA>needs {RepairRules.KitName(k)}</color>";
                 }
                 else
                 {
                     handled++;
                     mark = $"<color=#{Hex(Palette.TintYellow)}>[~]</color>";
-                    note = $"<color=#{Hex(UiKit.Risk(d.Obviousness))}>{RepairRules.StateVerb(st).Replace(" over", "").Replace("hidden behind furniture", "behind furniture")} {d.Obviousness:P0}</color>";
+                    note = $"<color=#{Hex(UiKit.Risk(d.Obviousness))}>{RepairRules.StateVerb(st).Replace(" over", "").Replace("hidden behind furniture", "behind furniture")} {d.Coverage:P0} · risk {d.Obviousness:P0}</color>";
                 }
                 string sev = d.Severity == Severity.Safety ? $" <color=#{Hex(Palette.Accent)}>!</color>" : "";
                 sb.AppendLine($"{mark} {RepairRules.KindName(d.Kind)}{sev} <size=80%>· {d.Label}</size>  <size=85%>{note}</size>");
