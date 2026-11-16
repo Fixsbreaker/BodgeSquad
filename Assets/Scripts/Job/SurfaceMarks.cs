@@ -54,7 +54,7 @@ namespace BodgeSquad.Job
                 return m;
             }
             var mats = new Material[6];
-            mats[(int)KitType.Filler] = M(BodgeSquad.Art.Palette.Cream, 0.05f);           // white plaster smear
+            mats[(int)KitType.Filler] = M(Color.Lerp(BodgeSquad.Art.Palette.Walls, BodgeSquad.Art.Palette.Cream, 0.12f), 0.05f); // filled and touched up in the wall colour
             mats[(int)KitType.AntiMould] = M(Color.Lerp(BodgeSquad.Art.Palette.Cream, BodgeSquad.Art.Palette.AmbientSky, 0.5f), 0.6f); // wet spray
             mats[(int)KitType.WiringKit] = M(BodgeSquad.Art.Palette.UiInk, 0.3f);         // insulating tape / cover plate
             mats[(int)KitType.PaintTin] = M(BodgeSquad.Art.Palette.FreshPaint, 0.35f);

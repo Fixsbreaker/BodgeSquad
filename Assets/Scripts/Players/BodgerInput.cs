@@ -59,6 +59,12 @@ namespace BodgeSquad.Players
         public bool SprintHeld() => !Blocked && Sprint.IsPressed();
         public bool InteractPressed() => !Blocked && Interact.WasPressedThisFrame();
         public bool AttackPressed() => !Blocked && Attack.WasPressedThisFrame();
-        public bool AttackHeld() => !Blocked && Attack.IsPressed();
+        // Read the button itself: in the Editor the release can get lost when the Game view loses focus
+        public bool AttackHeld()
+        {
+            if (Blocked || !Application.isFocused) return false;
+            if (UsesKeyboard) return Mouse.current != null && Mouse.current.leftButton.isPressed;
+            return Gamepad.current != null && Gamepad.current.buttonWest.isPressed;
+        }
     }
 }

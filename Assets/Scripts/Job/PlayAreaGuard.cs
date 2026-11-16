@@ -14,6 +14,13 @@ namespace BodgeSquad.Job
 
         float _nextItemCheck;
 
+        void Start()
+        {
+            // the invisible lid must not catch paint strokes or block the view rays
+            var lid = GameObject.Find("Ceiling_Invisible");
+            if (lid != null) lid.layer = 2; // Ignore Raycast
+        }
+
         bool Outside(Vector3 p) =>
             p.y < floorY || p.y > halfExtents.y || Mathf.Abs(p.x) > halfExtents.x || Mathf.Abs(p.z) > halfExtents.z;
 

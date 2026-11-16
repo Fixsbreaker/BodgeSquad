@@ -58,7 +58,11 @@ namespace BodgeSquad.Interaction
             _bodger = GetComponent<NetworkBodger>();
         }
 
-        public void SetIgnoredLayer(int layer) => _rayMask = ~(1 << layer);
+        // Own body and invisible blockers (the ceiling lid sits on Ignore Raycast) never get in the way
+        public void SetIgnoredLayer(int layer) => _rayMask = ~((1 << layer) | (1 << 2));
+
+        // What the centre of the screen actually touches (shown in the debug line)
+        public string DebugLook { get; private set; }
 
         void Update()
         {
@@ -92,6 +96,7 @@ namespace BodgeSquad.Interaction
                 if (_held != null && _hits[i].rigidbody == _held.Body) continue;
                 if (best < 0 || _hits[i].distance < _hits[best].distance) best = i;
             }
+            DebugLook = best >= 0 ? $"{_hits[best].collider.name}{(_hits[best].collider.isTrigger ? " (trigger)" : "")} {_hits[best].distance:0.0} m" : $"nothing within {reach:0.0} m";
             if (best >= 0)
             {
                 var hit = _hits[best];
@@ -161,7 +166,7 @@ namespace BodgeSquad.Interaction
             bool click = RepairRules.Mode(kit.Type) == RepairRules.ToolMode.Click;
             bool active = click ? _input.AttackPressed() : _input.AttackHeld();
             if (!active) return;
-            if (!Physics.Raycast(eye.position, eye.forward, out var hit, toolReach, _rayMask, QueryTriggerInteraction.Ignore) || hit.rigidbody == _held.Body)
+            if (!ToolRay(out var hit))
             {
                 if (click) Flash("Too far: get closer");
                 return;
@@ -195,6 +200,20 @@ namespace BodgeSquad.Interaction
                 Flash($"{RepairRules.KitName(kit.Type)} ran out. Buy another");
                 Working = false;
             }
+        }
+
+        // Nearest solid surface under the crosshair, looking past the tool in your own hand
+        bool ToolRay(out RaycastHit best)
+        {
+            best = default;
+            int n = Physics.RaycastNonAlloc(eye.position, eye.forward, _hits, toolReach, _rayMask, QueryTriggerInteraction.Ignore);
+            float bestD = float.MaxValue;
+            for (int i = 0; i < n; i++)
+            {
+                if (_held != null && _hits[i].rigidbody == _held.Body) continue;
+                if (_hits[i].distance < bestD) { bestD = _hits[i].distance; best = _hits[i]; }
+            }
+            return bestD < float.MaxValue;
         }
 
         void CoverDefects(KitType kit, Vector3 point, float roll, bool click)

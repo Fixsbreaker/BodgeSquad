@@ -17,6 +17,7 @@ namespace BodgeSquad.UI
         UnityEngine.UI.Image _crosshair, _meterFill;
         GameObject _meter;
         RectTransform[] _brackets;
+        TextMeshProUGUI _debug;
         RectTransform _rootRect;
         readonly Vector3[] _corners = new Vector3[8];
 
@@ -43,6 +44,12 @@ namespace BodgeSquad.UI
             _meter.SetActive(false);
 
             // Target brackets: four yellow corners around whatever E would pick up
+            // Debug line (Editor and development builds): what the crosshair touches
+            if (Debug.isDebugBuild)
+            {
+                _debug = UiKit.Text("DebugLook", root, new Vector2(0, 0), new Vector2(0, 0), new Vector2(16, 8), new Vector2(1100, 36), 22, TextAlignmentOptions.BottomLeft, UiKit.WithAlpha(Palette.UiPaper, 0.75f));
+            }
+
             _brackets = new RectTransform[4];
             for (int i = 0; i < 4; i++)
             {
@@ -174,6 +181,7 @@ namespace BodgeSquad.UI
 
             _prompt.text = prompt;
             _message.text = interactor.Message ?? "";
+            if (_debug != null) _debug.text = $"looking at: {interactor.DebugLook}{(interactor.LookCarryable != null ? $"  → can grab {interactor.LookCarryable.name}" : "")}";
             var target = held == null ? interactor.LookCarryable : null;
             _crosshair.color = UiKit.WithAlpha(target != null ? Palette.TintYellow : defect != null ? Palette.Accent : Palette.UiPaper, 0.9f);
             PlaceBrackets(target);
