@@ -225,6 +225,23 @@ namespace ProjectBootstrap
             EditorApplication.Exit(report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded ? 0 : 1);
         }
 
+        // Release build for friends / itch.io: Builds/Windows/BodgeSquad.exe
+        public static void BuildWindows()
+        {
+            PlayerSettings.productName = "Bodge Squad";
+            PlayerSettings.companyName = "Bodge Squad Team";
+            PlayerSettings.runInBackground = true; // keep the host ticking when alt-tabbed
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { ScenePath },
+                locationPathName = "Builds/Windows/BodgeSquad.exe",
+                target = BuildTarget.StandaloneWindows64,
+                options = BuildOptions.None,
+            });
+            Debug.Log($"[NetSetup] Windows build: {report.summary.result}, {report.summary.totalErrors} errors, {report.summary.totalSize / (1024 * 1024)} MB");
+            EditorApplication.Exit(report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded ? 0 : 1);
+        }
+
         static void MakeNetworkCarryable(GameObject go)
         {
             var no = Ensure<NetworkObject>(go);
