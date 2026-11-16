@@ -56,7 +56,7 @@ namespace BodgeSquad.Job
             var mats = new Material[6];
             mats[(int)KitType.Filler] = M(Color.Lerp(BodgeSquad.Art.Palette.Walls, BodgeSquad.Art.Palette.Cream, 0.12f), 0.05f); // filled and touched up in the wall colour
             mats[(int)KitType.AntiMould] = M(Color.Lerp(BodgeSquad.Art.Palette.Cream, BodgeSquad.Art.Palette.AmbientSky, 0.5f), 0.6f); // wet spray
-            mats[(int)KitType.WiringKit] = M(BodgeSquad.Art.Palette.UiInk, 0.3f);         // insulating tape / cover plate
+            mats[(int)KitType.WiringKit] = M(BodgeSquad.Art.Palette.Cream, 0.4f);         // white plastic cover plate
             mats[(int)KitType.PaintTin] = M(BodgeSquad.Art.Palette.FreshPaint, 0.35f);
             mats[(int)KitType.WallpaperRoll] = M(BodgeSquad.Art.Palette.Wallpaper, 0.05f);
             mats[(int)KitType.DuctTape] = M(BodgeSquad.Art.Palette.Tape, 0.55f);
@@ -114,6 +114,7 @@ namespace BodgeSquad.Job
                     break;
                 case NetworkListEvent<Mark>.EventType.Clear:
                     ClearDrawn();
+                    _layerBump = 0;
                     break;
                 default: // anything else: redraw from scratch
                     ClearDrawn();
@@ -159,8 +160,9 @@ namespace BodgeSquad.Job
             }
             q.transform.SetParent(parent, false);
             var n = m.Normal.sqrMagnitude > 0.01f ? m.Normal.normalized : Vector3.up;
-            _layerBump = (_layerBump + 1) % 12;
-            q.transform.localPosition = pos + n * (0.004f + _layerBump * 0.0005f);
+            // every new mark sits a hair in front of all earlier ones, so you can always paint over
+            _layerBump = (_layerBump + 1) % MaxMarks;
+            q.transform.localPosition = pos + n * (0.003f + _layerBump * 0.00002f);
             // quads show their -Z side: look into the surface
             q.transform.localRotation = Quaternion.LookRotation(-n, Mathf.Abs(n.y) > 0.9f ? Vector3.forward : Vector3.up) * Quaternion.Euler(0, 0, m.Roll);
             var kit = (KitType)m.Kit;
