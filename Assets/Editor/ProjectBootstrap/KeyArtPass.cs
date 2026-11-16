@@ -139,7 +139,7 @@ namespace ProjectBootstrap
             P(goggles, PrimitiveType.Cylinder, "Lens_L", new Vector3(-0.1f, 1.6f, 0.31f), new Vector3(0.13f, 0.03f, 0.13f), _glass).localRotation = Quaternion.Euler(70, 0, 0);
             P(goggles, PrimitiveType.Cylinder, "Lens_R", new Vector3(0.1f, 1.6f, 0.31f), new Vector3(0.13f, 0.03f, 0.13f), _glass).localRotation = Quaternion.Euler(70, 0, 0);
 
-            var slot = root.GetComponent<PlayerSlot>();
+            var slot = root.GetComponent<NetworkBodger>();
             var so = new SerializedObject(slot);
             var tr = so.FindProperty("tintedRenderers");
             tr.arraySize = tinted.Count;

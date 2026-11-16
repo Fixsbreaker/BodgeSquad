@@ -61,6 +61,42 @@ namespace BodgeSquad.UI
 
         public static Color WithAlpha(Color c, float a) { c.a = a; return c; }
 
+        public static UnityEngine.UI.Button Button(string name, Transform parent, Vector2 pos, Vector2 size, string label, Color bg, Color fg, UnityEngine.Events.UnityAction onClick)
+        {
+            var img = Panel(name, parent, new Vector2(.5f, .5f), new Vector2(.5f, .5f), pos, size, bg);
+            img.raycastTarget = true;
+            var b = img.gameObject.AddComponent<UnityEngine.UI.Button>();
+            var colors = b.colors;
+            colors.highlightedColor = new Color(1.15f, 1.15f, 1.15f);
+            colors.pressedColor = new Color(0.8f, 0.8f, 0.8f);
+            colors.disabledColor = new Color(0.55f, 0.55f, 0.55f, 0.8f);
+            b.colors = colors;
+            b.onClick.AddListener(onClick);
+            var t = Text("Label", img.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, size, 34, TextAlignmentOptions.Center, fg);
+            t.text = $"<b>{label}</b>";
+            t.outlineWidth = 0f;
+            return b;
+        }
+
+        public static TMP_InputField Input(string name, Transform parent, Vector2 pos, Vector2 size, string placeholder, int maxChars)
+        {
+            var bg = Panel(name, parent, new Vector2(.5f, .5f), new Vector2(.5f, .5f), pos, size, Palette.UiPaper);
+            bg.raycastTarget = true;
+            var area = Rect("TextArea", bg.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, size - new Vector2(24, 8));
+            area.gameObject.AddComponent<UnityEngine.UI.RectMask2D>();
+            var ph = Text("Placeholder", area, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, area.sizeDelta, 32, TextAlignmentOptions.Center, WithAlpha(Palette.UiInk, 0.45f));
+            ph.text = placeholder; ph.outlineWidth = 0f; ph.fontStyle = FontStyles.Italic;
+            var txt = Text("Text", area, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, area.sizeDelta, 36, TextAlignmentOptions.Center, Palette.UiInk);
+            txt.outlineWidth = 0f;
+            var field = bg.gameObject.AddComponent<TMP_InputField>();
+            field.textViewport = area;
+            field.textComponent = txt;
+            field.placeholder = ph;
+            field.characterLimit = maxChars;
+            field.targetGraphic = bg;
+            return field;
+        }
+
         // Green → yellow → red for the obviousness meter
         public static Color Risk(float t) =>
             t < 0.5f ? Color.Lerp(Palette.Pass, Palette.TintYellow, t * 2f) : Color.Lerp(Palette.TintYellow, Palette.Accent, (t - 0.5f) * 2f);

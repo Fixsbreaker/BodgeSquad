@@ -1,11 +1,10 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace BodgeSquad.Players
 {
-    // First-person walker for one local player. Reads its own PlayerInput (one per split-screen slot).
+    // First-person walker for the local player (enabled only on the owner's machine).
     // Yaw turns the body, pitch tilts the Eye; the Cinemachine camera hard-locks to the Eye.
-    [RequireComponent(typeof(CharacterController), typeof(PlayerInput))]
+    [RequireComponent(typeof(CharacterController), typeof(BodgerInput))]
     public class FirstPersonController : MonoBehaviour
     {
         [Header("References")]
@@ -29,11 +28,19 @@ namespace BodgeSquad.Players
         [SerializeField] float bobFrequency = 1.9f;       // steps per second at walk speed
 
         CharacterController _cc;
-        PlayerInput _input;
-        InputAction _move, _look, _jump, _sprint;
+        BodgerInput _input;
         Vector3 _planarVelocity;
         float _verticalVelocity, _pitch, _bobPhase, _bobBlend;
         Vector3 _eyeRest;
+
+        // Teleport safely (the CharacterController overrides transform writes while enabled)
+        public void Teleport(Vector3 pos, Quaternion rot)
+        {
+            _cc.enabled = false;
+            transform.SetPositionAndRotation(pos, rot);
+            _cc.enabled = true;
+            _planarVelocity = Vector3.zero; _verticalVelocity = 0f;
+        }
 
         public Vector3 Velocity => _cc != null ? _cc.velocity : Vector3.zero;
         public float NormalizedSpeed => Mathf.Clamp01(new Vector3(_planarVelocity.x, 0, _planarVelocity.z).magnitude / walkSpeed);
@@ -46,18 +53,11 @@ namespace BodgeSquad.Players
             _eyeRest = eye.localPosition;
         }
 
-        void Start() // PlayerInput clones its actions per player on enable; bind after that
-        {
-            _input = GetComponent<PlayerInput>();
-            _move = _input.actions["Move"];
-            _look = _input.actions["Look"];
-            _jump = _input.actions["Jump"];
-            _sprint = _input.actions["Sprint"];
-        }
+        void Start() => _input = GetComponent<BodgerInput>();
 
         void Update()
         {
-            if (_input == null) return;
+            if (_input == null || !_input.Ready) return;
             Look();
             Move();
             HeadBob();
@@ -65,8 +65,8 @@ namespace BodgeSquad.Players
 
         void Look()
         {
-            Vector2 look = _look.ReadValue<Vector2>();
-            bool pointer = _input.currentControlScheme == "Keyboard&Mouse";
+            Vector2 look = _input.ReadLook();
+            bool pointer = _input.UsesKeyboard;
             Vector2 delta = pointer ? look * mouseSensitivity : look * (stickLookSpeed * Time.deltaTime);
 
             transform.Rotate(0f, delta.x, 0f, Space.Self);
@@ -76,8 +76,8 @@ namespace BodgeSquad.Players
 
         void Move()
         {
-            Vector2 m = Vector2.ClampMagnitude(_move.ReadValue<Vector2>(), 1f);
-            float speed = _sprint.IsPressed() ? sprintSpeed : walkSpeed;
+            Vector2 m = Vector2.ClampMagnitude(_input.ReadMove(), 1f);
+            float speed = _input.SprintHeld() ? sprintSpeed : walkSpeed;
             Vector3 target = (transform.right * m.x + transform.forward * m.y) * speed;
 
             float rate = target.sqrMagnitude > 0.01f ? acceleration : deceleration;
@@ -86,7 +86,7 @@ namespace BodgeSquad.Players
             if (_cc.isGrounded)
             {
                 if (_verticalVelocity < 0f) _verticalVelocity = -2f; // keep snapped to floor
-                if (_jump.WasPressedThisFrame())
+                if (_input.JumpPressed())
                     _verticalVelocity = Mathf.Sqrt(2f * jumpHeight * -gravity);
             }
             _verticalVelocity += gravity * Time.deltaTime;

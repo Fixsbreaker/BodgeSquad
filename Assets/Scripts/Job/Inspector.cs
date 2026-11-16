@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace BodgeSquad.Job
@@ -8,7 +9,9 @@ namespace BodgeSquad.Job
     // The live, physical inspection: walks room to room, stops at each defect, leans in and taps,
     // then either plants a red flag (caught) or walks on (got away with it).
     // Visual-only inspection, like the real thing: concealed damage is legitimately missable.
-    public class Inspector : MonoBehaviour
+    // Online: the host runs the walk; NetworkTransforms carry it to every screen, flags are
+    // planted on every machine by RPC.
+    public class Inspector : NetworkBehaviour
     {
         [SerializeField] Transform body;          // leans/taps
         [SerializeField] Transform entrance;      // where he appears
@@ -22,17 +25,44 @@ namespace BodgeSquad.Job
 
         Vector3 _bodyRest;
 
+        readonly NetworkVariable<bool> _visible = new(false);
+        Coroutine _run;
+
         void Awake()
         {
             _bodyRest = body.localPosition;
-            gameObject.SetActive(false);
+            ShowBody(false); // objects stay active (they're networked); only the look is hidden
         }
 
+        public override void OnNetworkSpawn()
+        {
+            _visible.OnValueChanged += (_, v) => ShowBody(v);
+            ShowBody(_visible.Value);
+        }
+
+        void ShowBody(bool on)
+        {
+            foreach (var r in body.GetComponentsInChildren<Renderer>(true)) r.enabled = on;
+        }
+
+        // Host only
         public void Begin(IReadOnlyList<Defect> defects, Action onDone)
         {
             transform.SetPositionAndRotation(entrance.position, entrance.rotation);
-            gameObject.SetActive(true);
-            StartCoroutine(Run(new List<Defect>(defects), onDone));
+            _visible.Value = true;
+            _run = StartCoroutine(Run(new List<Defect>(defects), onDone));
+        }
+
+        // Host: new job
+        public void ResetInspector()
+        {
+            if (_run != null) StopCoroutine(_run);
+            _run = null;
+            Current = null;
+            transform.SetPositionAndRotation(entrance.position, entrance.rotation);
+            body.localPosition = _bodyRest;
+            body.localRotation = Quaternion.identity;
+            _visible.Value = false;
         }
 
         IEnumerator Run(List<Defect> todo, Action onDone)
@@ -133,11 +163,18 @@ namespace BodgeSquad.Job
             body.localRotation = Quaternion.identity;
         }
 
-        void Plant(GameObject prefab, Defect d)
+        void Plant(GameObject prefab, Defect d) =>
+            PlantRpc(new NetworkObjectReference(d.NetworkObject), prefab == flagPrefab);
+
+        [Rpc(SendTo.Everyone)]
+        void PlantRpc(NetworkObjectReference defectRef, bool flag)
         {
-            if (prefab == null) return;
+            var prefab = flag ? flagPrefab : passPrefab;
+            if (prefab == null || !defectRef.TryGet(out var no)) return;
+            var d = no.GetComponent<Defect>();
             var pos = d.transform.position + d.transform.forward * 0.12f + Vector3.up * 0.25f;
             var go = Instantiate(prefab, pos, Quaternion.LookRotation(d.transform.forward));
+            go.AddComponent<InspectionMarker>();
             StartCoroutine(Pop(go.transform));
         }
 

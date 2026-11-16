@@ -1,6 +1,7 @@
 using System.Text;
 using BodgeSquad.Art;
 using BodgeSquad.Job;
+using BodgeSquad.Players;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,10 +12,10 @@ namespace BodgeSquad.UI
     // and the final inspection report.
     public class JobHud : MonoBehaviour
     {
-        [SerializeField] PlayerInputManager players;
 
-        TextMeshProUGUI _top, _feed, _join, _report;
-        GameObject _reportPanel, _joinGroup, _help, _orderPanel;
+        TextMeshProUGUI _top, _feed, _report;
+        GameObject _reportPanel, _help, _orderPanel;
+        float _autoHelpUntil = -1f;
         TextMeshProUGUI _order, _helpHint;
         bool _helpToggled;
         float _nextOrderRefresh;
@@ -28,25 +29,6 @@ namespace BodgeSquad.UI
             var bar = UiKit.Panel("TopBar", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -12), new Vector2(760, 64), UiKit.WithAlpha(Palette.UiInk, 0.82f));
             _top = UiKit.Text("Status", bar.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(740, 60), 34, TextAlignmentOptions.Center);
             _feed = UiKit.Text("Feed", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -86), new Vector2(1400, 60), 36, TextAlignmentOptions.Top);
-            // Title card in the key-art style: chunky cream "BODGE" on a tilted red sign, "SQUAD" on yellow tape
-            var logo = UiKit.Rect("Logo", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, 200), new Vector2(900, 420));
-            _joinGroup = logo.gameObject;
-            var shadow = UiKit.Panel("SignShadow", logo, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(10, 52), new Vector2(760, 210), Palette.UiInk);
-            shadow.rectTransform.localRotation = Quaternion.Euler(0, 0, 3f);
-            var sign = UiKit.Panel("Sign", logo, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, 62), new Vector2(760, 210), Palette.Accent);
-            sign.rectTransform.localRotation = Quaternion.Euler(0, 0, 3f);
-            var bodge = UiKit.Text("Bodge", sign.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, -4), new Vector2(760, 210), 170, TextAlignmentOptions.Center, Palette.UiPaper);
-            bodge.text = "<b>BODGE</b>";
-            bodge.outlineWidth = 0.3f;
-            bodge.characterSpacing = 4f;
-            var tape = UiKit.Panel("Tape", logo, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(40, -70), new Vector2(560, 120), Palette.TintYellow);
-            tape.rectTransform.localRotation = Quaternion.Euler(0, 0, -2.5f);
-            var squad = UiKit.Text("Squad", tape.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 120), 96, TextAlignmentOptions.Center, Palette.UiInk);
-            squad.text = "<b>SQUAD</b>";
-            squad.outlineWidth = 0f;
-            squad.characterSpacing = 10f;
-            _join = UiKit.Text("JoinHint", logo, new Vector2(.5f, 0), new Vector2(.5f, 1), new Vector2(0, -40), new Vector2(1400, 80), 40, TextAlignmentOptions.Center);
-            _join.text = "Press any button to join  <size=80%>(up to 4 players)</size>";
 
             // Work order: the task list, top-left
             var orderBg = UiKit.Panel("WorkOrder", root, new Vector2(0, 1), new Vector2(0, 1), new Vector2(16, -16), new Vector2(520, 330), UiKit.WithAlpha(Palette.UiInk, 0.78f));
@@ -108,11 +90,17 @@ namespace BodgeSquad.UI
             var job = JobManager.Instance;
             if (job == null || _top == null) return;
 
-            bool lobby = players != null && players.playerCount == 0;
-            _joinGroup.SetActive(lobby);
-            if (HelpPressed()) _helpToggled = !_helpToggled;
+            bool lobby = NetworkBodger.Local == null; // the main menu is up
+            if (!lobby && _autoHelpUntil < 0f) _autoHelpUntil = Time.time + 12f; // show the basics right after joining
+            if (lobby) _autoHelpUntil = -1f;
+            if (HelpPressed())
+            {
+                if (Time.time < _autoHelpUntil) { _autoHelpUntil = 0f; _helpToggled = false; }
+                else _helpToggled = !_helpToggled;
+            }
             bool inGame = job.Phase == JobPhase.Renovation;
-            _help.SetActive(lobby || (_helpToggled && inGame));
+            _help.SetActive(!lobby && inGame && (_helpToggled || Time.time < _autoHelpUntil));
+            _top.transform.parent.gameObject.SetActive(!lobby);
             _helpHint.gameObject.SetActive(!lobby && inGame);
             _orderPanel.SetActive(!lobby && job.Phase != JobPhase.Results);
             if (Time.time >= _nextOrderRefresh) { _nextOrderRefresh = Time.time + 0.25f; RefreshOrder(job); }
@@ -149,7 +137,8 @@ namespace BodgeSquad.UI
             sb.AppendLine($"Materials spent ${job.Spent}");
             var profitColor = job.Profit >= 0 ? Palette.Pass : Palette.Accent;
             sb.AppendLine($"<size=130%>PROFIT <b><color=#{Hex(profitColor)}>${job.Profit}</color></b></size>\n");
-            sb.AppendLine("<size=80%>Press R / Start to take another job</size>");
+            sb.AppendLine(Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsServer
+                ? "<size=80%>Press R / Start to take another job</size>" : "<size=80%>Waiting for the host to start another job…</size>");
             _report.text = sb.ToString();
             _reportPanel.SetActive(true);
             Debug.Log($"[Job] Report: caught {job.CaughtCount}, payout {job.Payout}, spent {job.Spent}, profit {job.Profit}");

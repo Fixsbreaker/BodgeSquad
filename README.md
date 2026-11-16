@@ -6,11 +6,11 @@
 
 **Bodge it · Patch it · Hide it · Pass!?**
 
-A local co-op comedy game about doing the bare minimum and getting away with it.
+An online co-op comedy game about doing the bare minimum and getting away with it.
 
 [![Play on itch.io](https://img.shields.io/badge/itch.io-Bodge%20Squad-FA5C5C?style=for-the-badge&logo=itch.io&logoColor=white)](https://aybekk.itch.io/bodge-squad)
 ![Unity](https://img.shields.io/badge/Unity-6000.6-000000?style=for-the-badge&logo=unity&logoColor=white)
-![Players](https://img.shields.io/badge/players-1--4%20local-F6C93B?style=for-the-badge)
+![Players](https://img.shields.io/badge/players-1--4%20online-F6C93B?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-in%20development-4E7F79?style=for-the-badge)
 
 ### 👉 [aybekk.itch.io/bodge-squad](https://aybekk.itch.io/bodge-squad)
@@ -23,7 +23,9 @@ A local co-op comedy game about doing the bare minimum and getting away with it.
 
 You and up to three friends get a wrecked house and a fixed budget. Buy the cheapest materials you can find, patch what you can, and hide what you can't afford to fix. Then the inspector shows up, and you only get paid for what they don't notice.
 
-One couch, one screen, up to four people who absolutely should not be trusted with power tools.
+Up to four people, each on their own PC, who absolutely should not be trusted with power tools. One hosts, the others join with a room code.
+
+<p align="center"><img src="Docs/menu.png" alt="Title screen" width="80%"></p>
 
 <p align="center">
   <img src="Docs/keyart_lineup.png" alt="The four bodgers and the inspector" width="49%">
@@ -58,7 +60,8 @@ Fixing everything properly costs more than the budget, so the game is about deci
 | | |
 |---|---|
 | Engine | Unity 6 (6000.6), URP |
-| Players | 1–4 local, first-person split-screen via `PlayerInputManager` + Cinemachine 3 output channels |
+| Networking | Netcode for GameObjects 2.14, host-client. Join by room code over the internet (Unity Multiplayer Services) or by IP on a LAN |
+| Authority | Host runs the job (budget, defects, inspector) via NetworkVariables and RPCs; each player drives their own bodger, and ownership of an item passes to whoever is carrying it |
 | Input | Input System (keyboard & mouse, gamepads) |
 | UI | uGUI + TextMeshPro, built from code |
 | Physics | Velocity-driven carrying (held items still collide), throwable props, furniture that snaps in front of defects |
@@ -70,8 +73,9 @@ Fixing everything properly costs more than the budget, so the game is about deci
 Assets/Scripts
 ├── Job/          JobManager (budget, timer, phases), Defect, Inspector, RepairRules, PlayAreaGuard
 ├── Interaction/  CarryInteractor, Carryable, RepairKit, SupplyShelf, Concealer (furniture cover), Doorbell
-├── Players/      FirstPersonController, PlayerSlot (split-screen wiring), BodgerMotion, SpawnOnJoin
-├── UI/           PlayerHud (per-viewport prompts and risk meter), JobHud (work order, help, report)
+├── Net/          NetSession (host / join by code / LAN), NetworkManagerGuard, NetSmokeTest
+├── Players/      NetworkBodger (owner camera, hats by slot), BodgerInput, FirstPersonController, BodgerMotion
+├── UI/           MainMenu (title, pause), PlayerHud (prompts, risk meter), JobHud (work order, help, report)
 └── Art/          Palette (art bible)
 ```
 
@@ -79,7 +83,8 @@ Assets/Scripts
 
 1. Open the project in **Unity 6000.6** (Unity Hub → Add → this folder).
 2. Open `Assets/Scenes/SampleScene` and press **Play**.
-3. Press any key or gamepad button to join. Up to 4 players, one per device.
+3. **Host Game** gives a room code; friends press **Join** with it. On one network, **Host on LAN** + **Join by IP** work without an account.
+4. To try 2–4 players on one machine: *Window → Multiplayer → Multiplayer Play Mode*, tick the extra players.
 
 | Action | Keyboard | Gamepad |
 |---|---|---|
@@ -88,6 +93,7 @@ Assets/Scripts
 | Throw | Left mouse | X |
 | Run / jump | Shift / Space | Stick press / A |
 | How to play | Tab | Select |
+| Pause / room code / leave | Esc | Start |
 | Next job (on the report) | R | Start |
 
 ## Characters

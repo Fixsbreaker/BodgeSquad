@@ -15,20 +15,30 @@ namespace BodgeSquad.Players
         [SerializeField] float breatheAmplitude = 0.012f;
         [SerializeField] float breatheFrequency = 0.35f;
 
+        [SerializeField] float walkSpeed = 3.6f;
+
         Vector3 _rest;
         float _phase, _gait, _lean;
-        Vector3 _lastVel;
+        Vector3 _lastVel, _lastPos;
 
-        void Awake() => _rest = transform.localPosition;
+        void Awake()
+        {
+            _rest = transform.localPosition;
+            _lastPos = controller.transform.position;
+        }
 
         void LateUpdate()
         {
             float dt = Mathf.Max(Time.deltaTime, 1e-4f);
-            float speedN = controller.IsGrounded ? controller.NormalizedSpeed : 0f;
+            // Measured from movement, so it also animates other players' bodgers (synced by position only)
+            Vector3 pos = controller.transform.position;
+            Vector3 vel = (pos - _lastPos) / dt; _lastPos = pos;
+            bool airborne = Mathf.Abs(vel.y) > 1.5f;
+            vel.y = 0;
+            float speedN = airborne ? 0f : Mathf.Clamp01(vel.magnitude / walkSpeed);
             _gait = Mathf.MoveTowards(_gait, speedN, dt / 0.3f); // settle, never freeze
             _phase += dt * stepFrequency * Mathf.Max(speedN, 0.25f) * Mathf.PI * 2f;
 
-            Vector3 vel = controller.Velocity; vel.y = 0;
             float accel = Vector3.Dot((vel - _lastVel) / dt, controller.transform.forward);
             _lastVel = vel;
             _lean = Mathf.Lerp(_lean, Mathf.Clamp(accel / 20f, -1f, 1f) * leanDegrees, dt * 6f);

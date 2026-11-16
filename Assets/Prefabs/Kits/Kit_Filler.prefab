@@ -215,6 +215,9 @@ GameObject:
   - component: {fileID: 6991281995922841491}
   - component: {fileID: 5665753202155947639}
   - component: {fileID: 500401022125650782}
+  - component: {fileID: 5759839173921993852}
+  - component: {fileID: 2216872286226406636}
+  - component: {fileID: 8921627529737448425}
   m_Layer: 0
   m_Name: Kit_Filler
   m_TagString: Untagged
@@ -277,6 +280,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01a49e72c3beb48b9b4756a59fc20ce5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BodgeSquad.Interaction.Carryable
+  ShowTopMostFoldoutHeaderGroup: 1
   carryWeight: 1
 --- !u!114 &500401022125650782
 MonoBehaviour:
@@ -290,4 +294,95 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 25bd59dd02db841a19354e0f485ab2ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BodgeSquad.Interaction.RepairKit
+  ShowTopMostFoldoutHeaderGroup: 1
   type: 0
+--- !u!114 &5759839173921993852
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8083769706247684654}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 0
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 1
+  AutoObjectParentSync: 0
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &2216872286226406636
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8083769706247684654}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkTransform
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkTransformExpanded: 0
+  AutoOwnerAuthorityTickOffset: 1
+  PositionInterpolationType: 0
+  RotationInterpolationType: 0
+  ScaleInterpolationType: 0
+  PositionLerpSmoothing: 1
+  PositionMaxInterpolationTime: 0.1
+  RotationLerpSmoothing: 1
+  RotationMaxInterpolationTime: 0.1
+  ScaleLerpSmoothing: 1
+  ScaleMaxInterpolationTime: 0.1
+  AuthorityMode: 1
+  TickSyncChildren: 0
+  UseUnreliableDeltas: 0
+  SyncPositionX: 1
+  SyncPositionY: 1
+  SyncPositionZ: 1
+  SyncRotAngleX: 1
+  SyncRotAngleY: 1
+  SyncRotAngleZ: 1
+  SyncScaleX: 0
+  SyncScaleY: 0
+  SyncScaleZ: 0
+  PositionThreshold: 0.001
+  RotAngleThreshold: 0.01
+  ScaleThreshold: 0.01
+  UseQuaternionSynchronization: 0
+  UseQuaternionCompression: 0
+  UseHalfFloatPrecision: 0
+  InLocalSpace: 0
+  SwitchTransformSpaceWhenParented: 0
+  Interpolate: 1
+  SlerpPosition: 0
+--- !u!114 &8921627529737448425
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8083769706247684654}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6c0be61502bb534f922ebb746851216, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.Components.NetworkRigidbody
+  ShowTopMostFoldoutHeaderGroup: 1
+  NetworkRigidbodyBaseExpanded: 0
+  UseRigidBodyForMotion: 0
+  AutoUpdateKinematicState: 1
+  AutoSetKinematicOnDespawn: 1

@@ -12,7 +12,10 @@ namespace ProjectBootstrap
     {
         static readonly string[] PackagesToAdd =
         {
-            "com.unity.cinemachine", // gameplay cameras (3.x on Unity 6)
+            "com.unity.cinemachine",              // gameplay cameras (3.x on Unity 6)
+            "com.unity.netcode.gameobjects",      // online co-op gameplay sync
+            "com.unity.services.multiplayer",     // host + join by code over the internet
+            "com.unity.multiplayer.playmode",     // test up to 4 players inside the Editor
         };
 
         static readonly string[] PackagesToRemove = { };

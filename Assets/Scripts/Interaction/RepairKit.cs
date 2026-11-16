@@ -1,26 +1,29 @@
 using BodgeSquad.Job;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace BodgeSquad.Interaction
 {
-    // A consumable repair item (filler, paint, tape…). Paid for the first time someone picks it up.
+    // A consumable repair item (filler, paint, tape…). Paid for (on the host) the first time
+    // someone picks it up.
     [RequireComponent(typeof(Carryable))]
-    public class RepairKit : MonoBehaviour
+    public class RepairKit : NetworkBehaviour
     {
         [SerializeField] KitType type = KitType.PaintTin;
 
+        public readonly NetworkVariable<bool> PaidVar = new(false);
+
         public KitType Type => type;
         public int Price => RepairRules.Price(type);
-        public bool Paid { get; private set; }
+        public bool Paid => PaidVar.Value;
 
-        public void Configure(KitType t) => type = t;
-
+        // Host only
         public bool TryPurchase()
         {
             if (Paid) return true;
             var job = JobManager.Instance;
             if (job == null || !job.TrySpend(Price)) return false;
-            Paid = true;
+            PaidVar.Value = true;
             Debug.Log($"[Shop] Bought {RepairRules.KitName(type)} for ${Price}");
             return true;
         }

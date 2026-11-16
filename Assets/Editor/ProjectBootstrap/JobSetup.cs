@@ -175,8 +175,7 @@ namespace ProjectBootstrap
             var gso = new SerializedObject(guard);
             gso.FindProperty("halfExtents").vector3Value = new Vector3(RoomDims.InX - 0.05f, 3.2f, RoomDims.InZ - 0.05f);
             gso.ApplyModifiedPropertiesWithoutUndo();
-            var hud = jobGo.AddComponent<JobHud>();
-            Set(hud, "players", Object.FindAnyObjectByType<PlayerInputManager>());
+            jobGo.AddComponent<JobHud>();
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
@@ -419,13 +418,13 @@ namespace ProjectBootstrap
             var defects = Object.FindObjectsByType<Defect>();
             foreach (var d in defects)
             {
-                if (d.Kind == DefectKind.Hole) d.Apply(KitType.PaintTin, 1);
-                if (d.Kind == DefectKind.Crack && d.Severity == Severity.Cosmetic && d.Label == "east wall, up high") d.Apply(KitType.DuctTape, 0);
-                if (d.Kind == DefectKind.Mould) d.Apply(KitType.AntiMould, 2);
+                if (d.Kind == DefectKind.Hole) d.PreviewState(RepairState.PaintedOver, true);
+                if (d.Kind == DefectKind.Crack && d.Label == "east wall, up high") d.PreviewState(RepairState.Taped, false);
+                if (d.Kind == DefectKind.Mould) d.PreviewState(RepairState.Fixed, false);
             }
             foreach (var d in defects)
             {
-                if (d.Kind == DefectKind.Hole) { d.Reveal(); Object.Instantiate(flag, d.transform.position + d.transform.forward * 0.12f + Vector3.up * 0.25f, Quaternion.LookRotation(d.transform.forward)); }
+                if (d.Kind == DefectKind.Hole) { Object.Instantiate(flag, d.transform.position + d.transform.forward * 0.12f + Vector3.up * 0.25f, Quaternion.LookRotation(d.transform.forward)); }
                 if (d.Kind == DefectKind.Mould) Object.Instantiate(tick, d.transform.position + d.transform.forward * 0.12f + Vector3.up * 0.25f, Quaternion.LookRotation(d.transform.forward));
             }
             Shot(cam, new Vector3(2.8f, 1.5f, -0.5f), Quaternion.Euler(10, 70, 0), "Docs/slice_flagged.png");

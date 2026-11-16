@@ -1,15 +1,12 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace BodgeSquad.Players
 {
-    // The overview camera shown before anyone joins. Turns itself (and its AudioListener) off
-    // as soon as the first bodger joins, and back on if everyone leaves.
+    // The overview camera behind the main menu. Turns itself (and its AudioListener) off
+    // while this machine has its own bodger in the game.
     [RequireComponent(typeof(Camera))]
     public class JoinCamera : MonoBehaviour
     {
-        [SerializeField] PlayerInputManager manager;
-
         Camera _cam;
         AudioListener _listener;
 
@@ -19,26 +16,11 @@ namespace BodgeSquad.Players
             _listener = GetComponent<AudioListener>();
         }
 
-        void OnEnable()
+        void LateUpdate()
         {
-            manager.onPlayerJoined += OnChanged;
-            manager.onPlayerLeft += OnChanged;
-            Refresh();
-        }
-
-        void OnDisable()
-        {
-            manager.onPlayerJoined -= OnChanged;
-            manager.onPlayerLeft -= OnChanged;
-        }
-
-        void OnChanged(PlayerInput _) => Refresh();
-
-        void Refresh()
-        {
-            bool nobody = manager.playerCount == 0;
-            _cam.enabled = nobody;
-            if (_listener != null) _listener.enabled = nobody;
+            bool nobody = NetworkBodger.Local == null;
+            if (_cam.enabled != nobody) _cam.enabled = nobody;
+            if (_listener != null && _listener.enabled != nobody) _listener.enabled = nobody;
         }
     }
 }
