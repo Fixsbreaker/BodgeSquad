@@ -51,6 +51,8 @@ namespace BodgeSquad.Interaction
 
         void Awake()
         {
+            reach = Mathf.Max(reach, 3f);
+            dropDistance = Mathf.Max(dropDistance, 3f);
             _input = GetComponent<BodgerInput>();
             _bodger = GetComponent<NetworkBodger>();
         }
@@ -74,6 +76,11 @@ namespace BodgeSquad.Interaction
 
         readonly RaycastHit[] _hits = new RaycastHit[16];
 
+        // Forgiving pick-up: anything roughly in the middle of the screen and within reach counts,
+        // not just what the exact centre pixel touches. Defects and the doorbell still use the ray.
+        const float GrabCone = 15f;            // degrees off the crosshair
+        readonly Collider[] _near = new Collider[48];
+
         void ScanLook()
         {
             LookDefect = null; LookCarryable = null; LookPressable = null;
@@ -84,12 +91,42 @@ namespace BodgeSquad.Interaction
                 if (_held != null && _hits[i].rigidbody == _held.Body) continue;
                 if (best < 0 || _hits[i].distance < _hits[best].distance) best = i;
             }
-            if (best < 0) return;
-            var hit = _hits[best];
-            LookDefect = hit.collider.GetComponentInParent<Defect>();
-            var c = hit.collider.GetComponentInParent<Carryable>();
-            if (c != null && c != _held) LookCarryable = c;
-            LookPressable = hit.collider.GetComponentInParent<IPressable>();
+            if (best >= 0)
+            {
+                var hit = _hits[best];
+                LookDefect = hit.collider.GetComponentInParent<Defect>();
+                var c = hit.collider.GetComponentInParent<Carryable>();
+                if (c != null && c != _held) LookCarryable = c;
+                LookPressable = hit.collider.GetComponentInParent<IPressable>();
+            }
+            if (LookCarryable == null && _held == null) LookCarryable = AimAssist();
+        }
+
+        Carryable AimAssist()
+        {
+            Carryable bestC = null;
+            float bestScore = float.MaxValue;
+            int n = Physics.OverlapSphereNonAlloc(eye.position, reach, _near, _rayMask, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var rb = _near[i].attachedRigidbody;
+                if (rb == null || !rb.TryGetComponent<Carryable>(out var c) || c == _held) continue;
+                Vector3 centre = _near[i].bounds.center;
+                Vector3 to = centre - eye.position;
+                float dist = to.magnitude;
+                if (dist > reach) continue;
+                // bigger things get a wider cone (aim anywhere on the sofa)
+                float size = _near[i].bounds.extents.magnitude;
+                float cone = GrabCone + Mathf.Rad2Deg * Mathf.Atan2(size, Mathf.Max(dist, 0.1f));
+                float angle = Vector3.Angle(eye.forward, to);
+                if (angle > cone) continue;
+                // nothing solid in between (a wall, the table top is fine: it's under the item)
+                if (Physics.Raycast(eye.position, to / dist, out var block, dist - 0.05f, _rayMask, QueryTriggerInteraction.Ignore)
+                    && block.rigidbody != rb && block.collider.attachedRigidbody != rb && block.distance < dist - size) continue;
+                float score = angle + dist * 4f;
+                if (score < bestScore) { bestScore = score; bestC = c; }
+            }
+            return bestC;
         }
 
         void OnInteract()
@@ -180,11 +217,16 @@ namespace BodgeSquad.Interaction
         {
             if (!IsOwner || _held == null || !_held.IsOwner) return;
             var rb = _held.Body;
+            // tools sit firmly in the right hand (no wobble, no bumping); bigger things swing out in front
+            if (_held.TryGetComponent<RepairKit>(out _))
+            {
+                if (!rb.isKinematic) rb.isKinematic = true;
+                rb.MovePosition(eye.position + eye.forward * 0.55f + eye.right * 0.28f - eye.up * 0.24f);
+                rb.MoveRotation(eye.rotation);
+                return;
+            }
             if (rb.isKinematic) rb.isKinematic = false;
-            // tools are held close, in the right hand; bigger things out in front
-            Vector3 target = _held.TryGetComponent<RepairKit>(out _)
-                ? eye.position + eye.forward * 0.6f + eye.right * 0.28f - eye.up * 0.22f
-                : holdPoint.position;
+            Vector3 target = holdPoint.position;
             Vector3 toTarget = target - rb.worldCenterOfMass;
             if (toTarget.magnitude > dropDistance) { Release(Vector3.zero); return; }
 
@@ -237,6 +279,7 @@ namespace BodgeSquad.Interaction
             if (_held != null) Release(Vector3.zero);
             _held = c;
             c.Holder = transform;
+            IgnoreSelf(c, true);
             c.Body.useGravity = false;
             c.Body.isKinematic = false; // pictures hang kinematic on the wall
             c.Body.interpolation = RigidbodyInterpolation.Interpolate;
@@ -250,7 +293,9 @@ namespace BodgeSquad.Interaction
             if (c != null && c.TryGetComponent<RepairKit>(out var k)) { _lastKitType = (int)k.Type; FlushCells(force: true); }
             _held = null;
             if (c == null) return;
+            IgnoreSelf(c, false);
             c.Holder = null;
+            c.Body.isKinematic = false;
             c.Body.useGravity = true;
             if (velocity != Vector3.zero) c.Body.linearVelocity = velocity;
         }
@@ -273,6 +318,14 @@ namespace BodgeSquad.Interaction
 
         [Rpc(SendTo.Owner)]
         void FlashRpc(string msg) => Flash(msg);
+
+        // A held thing never collides with the one holding it
+        void IgnoreSelf(Carryable c, bool ignore)
+        {
+            var me = GetComponent<CharacterController>();
+            if (me == null || c == null) return;
+            foreach (var col in c.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(me, col, ignore);
+        }
 
         public static bool CanHide(Defect d) =>
             d.State != RepairState.Fixed && (JobManager.Instance == null || JobManager.Instance.Phase == JobPhase.Renovation);

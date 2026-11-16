@@ -16,6 +16,9 @@ namespace BodgeSquad.UI
         TextMeshProUGUI _prompt, _message, _meterLabel;
         UnityEngine.UI.Image _crosshair, _meterFill;
         GameObject _meter;
+        RectTransform[] _brackets;
+        RectTransform _rootRect;
+        readonly Vector3[] _corners = new Vector3[8];
 
         void Start()
         {
@@ -35,12 +38,60 @@ namespace BodgeSquad.UI
             _meterLabel = UiKit.Text("Label", meterBg.transform, new Vector2(0, 1), new Vector2(0, 0), new Vector2(0, 4), new Vector2(560, 50), 32, TextAlignmentOptions.BottomLeft);
             _meter.SetActive(false);
 
+            // Target brackets: four yellow corners around whatever E would pick up
+            _brackets = new RectTransform[4];
+            for (int i = 0; i < 4; i++)
+            {
+                var corner = UiKit.Rect($"Bracket{i}", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(34, 34));
+                bool right = i % 2 == 1, top = i >= 2;
+                UiKit.Panel("H", corner, new Vector2(right ? 1 : 0, top ? 1 : 0), new Vector2(right ? 1 : 0, top ? 1 : 0), Vector2.zero, new Vector2(34, 6), Palette.TintYellow);
+                UiKit.Panel("V", corner, new Vector2(right ? 1 : 0, top ? 1 : 0), new Vector2(right ? 1 : 0, top ? 1 : 0), Vector2.zero, new Vector2(6, 34), Palette.TintYellow);
+                _brackets[i] = corner;
+            }
+            _rootRect = (RectTransform)root;
+
             int uiLayer = LayerMask.NameToLayer("UI");
             foreach (var t in _canvasGo.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = uiLayer;
             playerCamera.cullingMask |= 1 << uiLayer;
         }
 
         GameObject _canvasGo;
+
+        void PlaceBrackets(Carryable target)
+        {
+            Vector2 min = default, max = default;
+            bool show = target != null && TryScreenRect(target, out min, out max);
+            foreach (var b in _brackets) b.gameObject.SetActive(show);
+            if (!show) return;
+            float pulse = 1f + Mathf.Sin(Time.time * 8f) * 0.06f;
+            Vector2 c = (min + max) / 2, half = (max - min) / 2 * pulse + new Vector2(14, 14);
+            _brackets[0].anchoredPosition = c + new Vector2(-half.x + 17, -half.y + 17);
+            _brackets[1].anchoredPosition = c + new Vector2(half.x - 17, -half.y + 17);
+            _brackets[2].anchoredPosition = c + new Vector2(-half.x + 17, half.y - 17);
+            _brackets[3].anchoredPosition = c + new Vector2(half.x - 17, half.y - 17);
+        }
+
+        bool TryScreenRect(Carryable t, out Vector2 min, out Vector2 max)
+        {
+            min = max = Vector2.zero;
+            var rends = t.GetComponentsInChildren<Renderer>();
+            if (rends.Length == 0) return false;
+            var b = rends[0].bounds;
+            foreach (var r in rends) b.Encapsulate(r.bounds);
+            Vector3 lo = b.min, hi = b.max;
+            int k = 0;
+            for (int x = 0; x < 2; x++) for (int y = 0; y < 2; y++) for (int z = 0; z < 2; z++)
+                _corners[k++] = new Vector3(x == 0 ? lo.x : hi.x, y == 0 ? lo.y : hi.y, z == 0 ? lo.z : hi.z);
+            min = new Vector2(float.MaxValue, float.MaxValue); max = new Vector2(float.MinValue, float.MinValue);
+            foreach (var w in _corners)
+            {
+                var sp = playerCamera.WorldToScreenPoint(w);
+                if (sp.z < 0.05f) return false;
+                if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_rootRect, sp, playerCamera, out var lp)) return false;
+                min = Vector2.Min(min, lp); max = Vector2.Max(max, lp);
+            }
+            return true;
+        }
 
         void OnDestroy()
         {
@@ -119,7 +170,9 @@ namespace BodgeSquad.UI
 
             _prompt.text = prompt;
             _message.text = interactor.Message ?? "";
-            _crosshair.color = UiKit.WithAlpha(defect != null ? Palette.Accent : Palette.UiPaper, 0.9f);
+            var target = held == null ? interactor.LookCarryable : null;
+            _crosshair.color = UiKit.WithAlpha(target != null ? Palette.TintYellow : defect != null ? Palette.Accent : Palette.UiPaper, 0.9f);
+            PlaceBrackets(target);
 
             _meter.SetActive(meter.HasValue);
             if (meter.HasValue)
