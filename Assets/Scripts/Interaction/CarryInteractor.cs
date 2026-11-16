@@ -94,6 +94,7 @@ namespace BodgeSquad.Interaction
             for (int i = 0; i < n; i++)
             {
                 if (_held != null && _hits[i].rigidbody == _held.Body) continue;
+                if (_hits[i].collider.transform.IsChildOf(transform)) continue; // our own capsule
                 if (best < 0 || _hits[i].distance < _hits[best].distance) best = i;
             }
             DebugLook = best >= 0 ? $"{_hits[best].collider.name}{(_hits[best].collider.isTrigger ? " (trigger)" : "")} {_hits[best].distance:0.0} m" : $"nothing within {reach:0.0} m";
@@ -128,7 +129,8 @@ namespace BodgeSquad.Interaction
                 if (angle > cone) continue;
                 // nothing solid in between (a wall, the table top is fine: it's under the item)
                 if (Physics.Raycast(eye.position, to / dist, out var block, dist - 0.05f, _rayMask, QueryTriggerInteraction.Ignore)
-                    && block.rigidbody != rb && block.collider.attachedRigidbody != rb && block.distance < dist - size) continue;
+                    && block.rigidbody != rb && block.collider.attachedRigidbody != rb && block.distance < dist - size
+                    && !block.collider.transform.IsChildOf(transform)) continue;
                 float score = angle + dist * 4f;
                 if (score < bestScore) { bestScore = score; bestC = c; }
             }
@@ -211,6 +213,7 @@ namespace BodgeSquad.Interaction
             for (int i = 0; i < n; i++)
             {
                 if (_held != null && _hits[i].rigidbody == _held.Body) continue;
+                if (_hits[i].collider.transform.IsChildOf(transform)) continue;
                 if (_hits[i].distance < bestD) { bestD = _hits[i].distance; best = _hits[i]; }
             }
             return bestD < float.MaxValue;

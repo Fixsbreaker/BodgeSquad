@@ -37,7 +37,7 @@ namespace BodgeSquad.UI
             _order.outlineWidth = 0f;
 
             // How to play: shown on the join screen, toggled in game
-            var help = UiKit.Panel("HowToPlay", root, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 40), new Vector2(1240, 380), UiKit.WithAlpha(Palette.UiInk, 0.9f));
+            var help = UiKit.Panel("HowToPlay", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -90), new Vector2(1240, 400), UiKit.WithAlpha(Palette.UiInk, 0.9f));
             _help = help.gameObject;
             var helpText = UiKit.Text("HowToPlayText", help.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(1180, 350), 27, TextAlignmentOptions.TopLeft);
             helpText.outlineWidth = 0f;

@@ -10,9 +10,12 @@ namespace BodgeSquad.Net
     // rings the doorbell, logging what it sees. Does nothing in normal play.
     public class NetSmokeTest : MonoBehaviour
     {
+        string _shots;
         void Start()
         {
             var args = System.Environment.GetCommandLineArgs();
+            int sd = System.Array.IndexOf(args, "-bodgeShotsDir");
+            if (sd >= 0 && sd + 1 < args.Length) _shots = args[sd + 1];
             if (System.Array.IndexOf(args, "-bodgeSmoke") >= 0) StartCoroutine(Run());
             int shot = System.Array.IndexOf(args, "-bodgeShot");
             if (shot >= 0 && shot + 1 < args.Length) StartCoroutine(Shot(args[shot + 1]));
@@ -57,10 +60,25 @@ namespace BodgeSquad.Net
                     total++;
                     bool seen = carryTest.LookCarryable != null && carryTest.LookCarryable.gameObject == plant;
                     if (seen) ok++;
-                    Debug.Log($"[Smoke] Look at plant from {dir}: {(seen ? "can grab" : "NOT grabbable")} (pitch {carryTest.Eye.eulerAngles.x:0})");
+                    Debug.Log($"[Smoke] Look at plant from {dir}: {(seen ? "can grab" : "NOT grabbable")} (pitch {carryTest.Eye.eulerAngles.x:0}) ray: {carryTest.DebugLook}");
+                    if (_shots != null) { ScreenCapture.CaptureScreenshot($"{_shots}/angle_{total}.png"); yield return null; yield return null; }
                     fpcTest.enabled = true;
                 }
                 Debug.Log($"[Smoke] Grab angles OK {ok}/{total}");
+                // straight down onto the plank lying on the floor, standing next to it
+                var plank = GameObject.Find("Plank");
+                if (plank != null)
+                {
+                    var pp = plank.transform.position;
+                    fpcTest.Teleport(new Vector3(pp.x + 0.6f, 0f, pp.z), Quaternion.identity);
+                    fpcTest.enabled = false;
+                    yield return null;
+                    carryTest.Eye.LookAt(plank.GetComponent<Collider>().bounds.center);
+                    yield return null; yield return null;
+                    Debug.Log($"[Smoke] Plank from above: {(carryTest.LookCarryable != null ? "can grab " + carryTest.LookCarryable.name : "NOT grabbable")} ray: {carryTest.DebugLook}");
+                    if (_shots != null) { ScreenCapture.CaptureScreenshot($"{_shots}/plank.png"); yield return null; yield return null; }
+                    fpcTest.enabled = true;
+                }
             }
 
             RepairKit filler = null;

@@ -50,7 +50,7 @@ namespace BodgeSquad.Players
             foreach (var b in ownerOnly) if (b != null) b.enabled = true;
             cameraRig.SetActive(true);
             vcam.gameObject.SetActive(true);
-            SetLayer(visualRoot, LocalBodyLayer);
+            SetLayer(transform, LocalBodyLayer); // the whole body incl. its capsule: never in the way of our own rays
             cameraRig.GetComponent<Camera>().cullingMask &= ~(1 << LocalBodyLayer);
             GetComponent<CarryInteractor>().SetIgnoredLayer(LocalBodyLayer);
             Cursor.lockState = CursorLockMode.Locked;
