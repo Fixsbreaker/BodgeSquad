@@ -226,6 +226,7 @@ namespace ProjectBootstrap
 
             // peeling wallpaper: torn plaster patches, kept clear of defects, window, door and shop
             var peel = Group(decor, "PeelingPatches");
+            peel.gameObject.SetActive(false); // looked like defects in playtests; kept for reference
             Peel(peel, Vector3.back, new Vector3(-1.6f, 1.5f, 0), 0.8f, 12f);
             Peel(peel, Vector3.back, new Vector3(3.7f, 1.3f, 0), 0.5f, -20f);
             Peel(peel, Vector3.forward, new Vector3(0.0f, 1.6f, 0), 0.8f, 18f);

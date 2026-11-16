@@ -81,6 +81,28 @@ namespace BodgeSquad.Net
                 }
             }
 
+            // Drop a half-used tool: it must stay in the world with what's left in it
+            {
+                RepairKit paint = null;
+                foreach (var k in FindObjectsByType<RepairKit>()) if (k.Type == KitType.PaintTin && !k.Paid) paint = k;
+                if (paint != null)
+                {
+                    var c0 = me.GetComponent<CarryInteractor>();
+                    var at = paint.transform.position + Vector3.back * 1.4f; at.y = 0f;
+                    me.GetComponent<FirstPersonController>().Teleport(at, Quaternion.LookRotation(Vector3.forward));
+                    yield return new WaitForSeconds(0.3f);
+                    c0.TestGrab(paint.GetComponent<Carryable>());
+                    yield return new WaitForSeconds(1f);
+                    paint.Spend(2f);
+                    yield return new WaitForSeconds(0.3f);
+                    float before = paint.Left;
+                    c0.TestDrop();
+                    yield return new WaitForSeconds(2f);
+                    bool alive = paint != null && paint.gameObject.activeInHierarchy && paint.IsSpawned;
+                    Debug.Log($"[Smoke] Dropped paint with {before:P0} left → still there: {alive}, left now {(alive ? paint.Left : -1f):P0}, at {(alive ? paint.transform.position.ToString("F2") : "-")}");
+                }
+            }
+
             RepairKit filler = null;
             foreach (var k in FindObjectsByType<RepairKit>()) if (k.Type == KitType.Filler && !k.Paid) filler = k;
             if (filler == null) { Debug.LogError("[Smoke] FAIL: no filler on the shelf"); yield break; }
@@ -94,6 +116,27 @@ namespace BodgeSquad.Net
 
             Defect crack = null;
             foreach (var d in job.Defects) if (d.Kind == DefectKind.Crack) { crack = d; break; }
+            // paint a sloppy patch on the wall next to the crack and look at it (screenshot)
+            {
+                var carryP = carry; var fpcP = me.GetComponent<FirstPersonController>();
+                var hole = crack;
+                foreach (var d in job.Defects) if (d.Label == "north wall") hole = d;
+                var front = hole.transform.position + hole.transform.forward * 1.8f; front.y = 0f;
+                fpcP.Teleport(front, Quaternion.LookRotation(-hole.transform.forward));
+                fpcP.enabled = false;
+                yield return null;
+                for (int i = 0; i < 26; i++)
+                {
+                    var p = hole.transform.position + hole.transform.right * (Mathf.Sin(i * 0.7f) * 0.45f) + hole.transform.up * (Mathf.Cos(i * 0.45f) * 0.3f);
+                    if (Physics.Raycast(p + hole.transform.forward * 0.5f, -hole.transform.forward, out var h, 1f))
+                        BodgeSquad.Job.SurfaceMarks.Instance.Place(KitType.PaintTin, h, 0.26f, i * 37f);
+                }
+                yield return new WaitForSeconds(0.5f);
+                carryP.Eye.LookAt(hole.transform.position);
+                yield return null; yield return null;
+                if (_shots != null) { ScreenCapture.CaptureScreenshot($"{_shots}/paint.png"); yield return null; yield return null; }
+                fpcP.enabled = true;
+            }
             carry.TestSweep(crack, 3f);
             yield return new WaitForSeconds(1.5f);
             Debug.Log($"[Smoke] {crack.DisplayName} state seen here: {crack.State} (fixed {crack.FixProgress:P0}) by P{crack.ResponsiblePlayer + 1}; filler left {(carry.HeldKit != null ? carry.HeldKit.Left : -1f):P0}");

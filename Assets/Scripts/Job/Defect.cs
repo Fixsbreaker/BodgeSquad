@@ -229,6 +229,15 @@ namespace BodgeSquad.Job
             _cells = new Renderer[4, Cells];
             var mats = new Material[4];
             mats[0] = Mat(fixedPatch); mats[1] = Mat(paintPatch); mats[2] = Mat(wallpaperPatch); mats[3] = Mat(tapePatch);
+            var marks = SurfaceMarks.Instance;
+            if (marks != null && Application.isPlaying)
+            {
+                // same look as the strokes around it, so a covered patch blends in
+                mats[0] = marks.MaterialFor(RepairRules.ProperKitFor(kind));
+                mats[1] = marks.MaterialFor(KitType.PaintTin);
+                mats[2] = marks.MaterialFor(KitType.WallpaperRoll);
+                mats[3] = marks.MaterialFor(KitType.DuctTape);
+            }
             var stripe = wallpaperPatch != null && wallpaperPatch.transform.childCount > 0
                 ? wallpaperPatch.transform.GetChild(0).GetComponent<Renderer>()?.sharedMaterial : null;
             foreach (var p in new[] { paintPatch, wallpaperPatch, tapePatch, fixedPatch }) if (p != null) p.SetActive(false);
@@ -249,12 +258,12 @@ namespace BodgeSquad.Job
                         q.name = $"L{l}_{x}_{y}";
                         q.transform.SetParent(root, false);
                         q.transform.localPosition = new Vector3((x + 0.5f) * cell - Patch / 2, (y + 0.5f) * cell - Patch / 2, z);
-                        float jitter = l == 3 ? (float)(rnd.NextDouble() * 16 - 8) : (float)(rnd.NextDouble() * 30 - 15);
+                        float jitter = l == 3 ? (float)(rnd.NextDouble() * 16 - 8) : 0f;
                         q.transform.localRotation = Quaternion.Euler(0, 180, jitter);
-                        float s = l == 3 ? 1.15f : 1.3f; // overlap so a covered area reads as one surface
+                        float s = l == 3 ? 1.15f : 1.6f; // round dabs overlap into one smooth surface
                         q.transform.localScale = new Vector3(cell * s, cell * s, 1);
                         var r = q.GetComponent<Renderer>();
-                        r.sharedMaterial = l == 2 && stripe != null && x % 3 == 1 ? stripe : mats[l];
+                        r.sharedMaterial = mats[l];
                         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                         r.enabled = false;
                         _cells[l, y * RepairRules.GridSize + x] = r;

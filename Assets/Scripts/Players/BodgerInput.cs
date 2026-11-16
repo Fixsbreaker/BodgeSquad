@@ -59,6 +59,14 @@ namespace BodgeSquad.Players
         public bool SprintHeld() => !Blocked && Sprint.IsPressed();
         public bool InteractPressed() => !Blocked && Interact.WasPressedThisFrame();
         public bool AttackPressed() => !Blocked && Attack.WasPressedThisFrame();
+        // Throw whatever you hold: right mouse / left shoulder (left mouse is "work" while holding a tool)
+        public bool ThrowPressed()
+        {
+            if (Blocked) return false;
+            if (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame) return true;
+            return Gamepad.current != null && Gamepad.current.leftShoulder.wasPressedThisFrame;
+        }
+
         // Read the button itself: in the Editor the release can get lost when the Game view loses focus
         public bool AttackHeld()
         {

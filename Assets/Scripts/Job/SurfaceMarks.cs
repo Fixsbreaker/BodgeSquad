@@ -41,26 +41,55 @@ namespace BodgeSquad.Job
             if (kitMaterials == null || kitMaterials.Length < 6 || kitMaterials[0] == null) kitMaterials = BuildMaterials();
         }
 
-        // One material per kit, from the art bible
+        // One material per kit: soft round dabs, close to the wall colour so a tidy job looks tidy
         static Material[] BuildMaterials()
         {
             var src = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null
                 ? UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline.defaultMaterial : null;
-            Material M(Color c, float smooth)
+            var round = RoundTexture();
+            Material M(Color c, float smooth, bool dab = true)
             {
                 var m = src != null ? new Material(src) : new Material(Shader.Find("Universal Render Pipeline/Lit"));
                 m.SetColor("_BaseColor", c);
                 m.SetFloat("_Smoothness", smooth);
+                if (dab)
+                {
+                    m.SetTexture("_BaseMap", round);
+                    m.SetFloat("_AlphaClip", 1f);
+                    m.SetFloat("_Cutoff", 0.5f);
+                    m.EnableKeyword("_ALPHATEST_ON");
+                }
                 return m;
             }
+            var wall = BodgeSquad.Art.Palette.Walls;
             var mats = new Material[6];
-            mats[(int)KitType.Filler] = M(Color.Lerp(BodgeSquad.Art.Palette.Walls, BodgeSquad.Art.Palette.Cream, 0.12f), 0.05f); // filled and touched up in the wall colour
-            mats[(int)KitType.AntiMould] = M(Color.Lerp(BodgeSquad.Art.Palette.Cream, BodgeSquad.Art.Palette.AmbientSky, 0.5f), 0.6f); // wet spray
-            mats[(int)KitType.WiringKit] = M(BodgeSquad.Art.Palette.Cream, 0.4f);         // white plastic cover plate
-            mats[(int)KitType.PaintTin] = M(BodgeSquad.Art.Palette.FreshPaint, 0.35f);
-            mats[(int)KitType.WallpaperRoll] = M(BodgeSquad.Art.Palette.Wallpaper, 0.05f);
-            mats[(int)KitType.DuctTape] = M(BodgeSquad.Art.Palette.Tape, 0.55f);
+            mats[(int)KitType.Filler] = M(Color.Lerp(wall, Color.white, 0.10f), 0.05f);                       // filled, a touch lighter
+            mats[(int)KitType.AntiMould] = M(Color.Lerp(wall, BodgeSquad.Art.Palette.AmbientSky, 0.18f), 0.6f); // damp sheen
+            mats[(int)KitType.WiringKit] = M(BodgeSquad.Art.Palette.Cream, 0.4f, dab: false);                // square cover plate
+            mats[(int)KitType.PaintTin] = M(Color.Lerp(wall, Color.white, 0.06f), 0.3f);                     // "close enough" teal
+            mats[(int)KitType.WallpaperRoll] = M(Color.Lerp(wall, BodgeSquad.Art.Palette.WallsDark, 0.25f), 0.05f, dab: false); // a strip of paper
+            mats[(int)KitType.DuctTape] = M(BodgeSquad.Art.Palette.Tape, 0.55f, dab: false);
             return mats;
+        }
+
+        public Material MaterialFor(KitType k) => kitMaterials[(int)k];
+
+        static Texture2D RoundTexture()
+        {
+            const int n = 64;
+            var t = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, name = "RoundDab" };
+            var rnd = new System.Random(3);
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = (x + 0.5f) / n - 0.5f, dy = (y + 0.5f) / n - 0.5f;
+                    float ang = Mathf.Atan2(dy, dx);
+                    float edge = 0.46f + 0.03f * Mathf.Sin(ang * 5f) + 0.015f * Mathf.Sin(ang * 13f); // a slightly wobbly brush edge
+                    float a = Mathf.Sqrt(dx * dx + dy * dy) < edge ? 1f : 0f;
+                    t.SetPixel(x, y, new Color(1, 1, 1, a));
+                }
+            t.Apply();
+            return t;
         }
 
         public override void OnNetworkSpawn()
@@ -162,7 +191,7 @@ namespace BodgeSquad.Job
             var n = m.Normal.sqrMagnitude > 0.01f ? m.Normal.normalized : Vector3.up;
             // every new mark sits a hair in front of all earlier ones, so you can always paint over
             _layerBump = (_layerBump + 1) % MaxMarks;
-            q.transform.localPosition = pos + n * (0.003f + _layerBump * 0.00002f);
+            q.transform.localPosition = pos + n * (0.012f + _layerBump * 0.00002f); // in front of wall decals and defect cells
             // quads show their -Z side: look into the surface
             q.transform.localRotation = Quaternion.LookRotation(-n, Mathf.Abs(n.y) > 0.9f ? Vector3.forward : Vector3.up) * Quaternion.Euler(0, 0, m.Roll);
             var kit = (KitType)m.Kit;

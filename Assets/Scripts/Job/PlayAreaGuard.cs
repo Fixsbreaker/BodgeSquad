@@ -19,6 +19,9 @@ namespace BodgeSquad.Job
             // the invisible lid must not catch paint strokes or block the view rays
             var lid = GameObject.Find("Ceiling_Invisible");
             if (lid != null) lid.layer = 2; // Ignore Raycast
+            // the decorative torn-wallpaper patches read as damage to fix: gone
+            var peel = GameObject.Find("PeelingPatches");
+            if (peel != null) peel.SetActive(false);
         }
 
         bool Outside(Vector3 p) =>

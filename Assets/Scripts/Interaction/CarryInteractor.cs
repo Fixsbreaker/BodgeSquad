@@ -72,6 +72,8 @@ namespace BodgeSquad.Interaction
             if (Time.time > _messageUntil) Message = null;
 
             if (_input.InteractPressed()) OnInteract();
+            else if (_held != null && _input.ThrowPressed())
+                Release(eye.forward * throwSpeed / _held.CarryWeight);
             else if (HeldKit != null) UseTool(HeldKit);
             else if (_held != null && _input.AttackPressed())
                 Release(eye.forward * throwSpeed / _held.CarryWeight);
@@ -199,7 +201,7 @@ namespace BodgeSquad.Interaction
                 DropLocal(Vector3.zero);
                 used.gameObject.SetActive(false);
                 ConsumeRpc(new NetworkObjectReference(used.NetworkObject));
-                Flash($"{RepairRules.KitName(kit.Type)} ran out. Buy another");
+                Flash($"{RepairRules.KitName(kit.Type)} is used up! Buy another");
                 Working = false;
             }
         }
@@ -291,6 +293,7 @@ namespace BodgeSquad.Interaction
         // ------------------------------------------------------------ test hooks (smoke test)
         public void TestGrab(Carryable c) => TryGrab(c);
         public Transform Eye => eye;
+        public void TestDrop() => Release(Vector3.zero);
         // Sweep the held tool over a whole defect, as a player would, for `seconds` of use
         public void TestSweep(Defect d, float seconds)
         {

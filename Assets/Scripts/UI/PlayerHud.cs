@@ -115,7 +115,7 @@ namespace BodgeSquad.UI
             if (_prompt == null || _brackets == null) { Build(); return; }
             bool kb = interactor.UsesKeyboard;
             string use = kb ? "[E]" : "[Y]";
-            string toss = kb ? "[LMB]" : "[X]";
+            string toss = kb ? "[RMB]" : "[LB]";
 
             var held = interactor.Held;
             var kit = held != null ? held.GetComponent<RepairKit>() : null;
@@ -138,9 +138,9 @@ namespace BodgeSquad.UI
                     string progress = wrongFix ? $"<color=#{accent}>won't fix {RepairRules.KindName(defect.Kind)}, it just smears over it</color>"
                         : RepairRules.IsProperFix(kit.Type) ? $"fixed {defect.FixProgress:P0} (needs {RepairRules.FixThreshold:P0})"
                         : $"covered {defect.Coverage:P0}";
-                    prompt = $"{how}  ·  {progress}\n<size=75%>{left}   ·   {use} Drop</size>";
+                    prompt = $"{how}  ·  {progress}\n<size=75%>{left}   ·   {use} Drop   {toss} Throw</size>";
                 }
-                else prompt = $"{how} on anything\n<size=75%>{left}   ·   {use} Drop</size>";
+                else prompt = $"{how} on anything\n<size=75%>{left}   ·   {use} Drop   {toss} Throw</size>";
             }
             else if (cover != null && cover.WallHung)
             {

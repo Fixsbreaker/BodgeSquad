@@ -37,9 +37,9 @@ namespace BodgeSquad.UI
             _order.outlineWidth = 0f;
 
             // How to play: shown on the join screen, toggled in game
-            var help = UiKit.Panel("HowToPlay", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -90), new Vector2(1240, 400), UiKit.WithAlpha(Palette.UiInk, 0.9f));
+            var help = UiKit.Panel("HowToPlay", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -90), new Vector2(1240, 450), UiKit.WithAlpha(Palette.UiInk, 0.9f));
             _help = help.gameObject;
-            var helpText = UiKit.Text("HowToPlayText", help.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(1180, 350), 27, TextAlignmentOptions.TopLeft);
+            var helpText = UiKit.Text("HowToPlayText", help.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(1180, 420), 27, TextAlignmentOptions.TopLeft);
             helpText.outlineWidth = 0f;
             string y = Hex(Palette.TintYellow), r = Hex(Palette.Accent), g = Hex(Palette.Pass), b = Hex(Palette.PlayerTints[2]);
             helpText.text =
@@ -51,7 +51,7 @@ namespace BodgeSquad.UI
                 $"     Gaps you miss stay visible. Tools run dry as you use them, so don't waste them.\n" +
                 $"<color=#{y}>3.</color> <color=#{g}><b>Free trick:</b></color> push furniture in front of a defect, or carry a picture to a wall and press <b>[E]</b> to hang it.\n" +
                 $"<color=#{y}>4.</color> The meter next to the crosshair shows the chance the inspector catches it.\n\n" +
-                $"<size=85%>Move <b>WASD</b> · Look <b>mouse</b> · Run <b>Shift</b> · Jump <b>Space</b> · Grab/Drop <b>E</b> · Work/Throw <b>LMB</b> · Help <b>Tab</b>     Gamepad: <b>Y</b> grab · <b>X</b> work/throw · <b>Select</b> help</size>";
+                $"<size=85%>Move <b>WASD</b> · Look <b>mouse</b> · Run <b>Shift</b> · Jump <b>Space</b> · Grab/Drop <b>E</b> · Work <b>LMB</b> · Throw <b>RMB</b> · Help <b>Tab</b>     Gamepad: <b>Y</b> grab · <b>X</b> work · <b>LB</b> throw · <b>Select</b> help</size>";
             _help.SetActive(false);
             _helpHint = UiKit.Text("HelpHint", root, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-16, 10), new Vector2(520, 40), 24, TextAlignmentOptions.BottomRight);
             _helpHint.text = "[Tab] / (Select)  How to play";
