@@ -13,7 +13,9 @@ namespace BodgeSquad.UI
     public class JobHud : MonoBehaviour
     {
 
-        TextMeshProUGUI _top, _feed, _report;
+        TextMeshProUGUI _top, _feed, _report, _inspText;
+        GameObject _inspBar;
+        UnityEngine.UI.Image _suspFill;
         GameObject _reportPanel, _help, _orderPanel;
         float _autoHelpUntil = -1f;
         TextMeshProUGUI _order, _helpHint;
@@ -28,7 +30,17 @@ namespace BodgeSquad.UI
 
             var bar = UiKit.Panel("TopBar", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -12), new Vector2(760, 64), UiKit.WithAlpha(Palette.UiInk, 0.82f));
             _top = UiKit.Text("Status", bar.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(740, 60), 34, TextAlignmentOptions.Center);
-            _feed = UiKit.Text("Feed", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -86), new Vector2(1400, 60), 36, TextAlignmentOptions.Top);
+            _feed = UiKit.Text("Feed", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -136), new Vector2(1500, 60), 36, TextAlignmentOptions.Top);
+
+            // Where the inspector is and how suspicious he is, under the money bar
+            var ib = UiKit.Panel("InspectorBar", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -80), new Vector2(760, 46), UiKit.WithAlpha(Palette.UiInk, 0.72f));
+            _inspBar = ib.gameObject;
+            _inspText = UiKit.Text("InspectorText", ib.transform, new Vector2(0, .5f), new Vector2(0, .5f), new Vector2(14, 0), new Vector2(470, 42), 26, TextAlignmentOptions.Left);
+            _inspText.outlineWidth = 0f;
+            var meterBg = UiKit.Panel("SuspicionBg", ib.transform, new Vector2(1, .5f), new Vector2(1, .5f), new Vector2(-14, 0), new Vector2(250, 20), UiKit.WithAlpha(Palette.UiPaper, 0.15f));
+            ((RectTransform)meterBg.transform).pivot = new Vector2(1, .5f);
+            _suspFill = UiKit.Panel("SuspicionFill", meterBg.transform, new Vector2(0, .5f), new Vector2(0, .5f), Vector2.zero, new Vector2(0, 20), Palette.TintYellow);
+            ((RectTransform)_suspFill.transform).pivot = new Vector2(0, .5f);
 
             // Work order: the task list, top-left
             var orderBg = UiKit.Panel("WorkOrder", root, new Vector2(0, 1), new Vector2(0, 1), new Vector2(16, -16), new Vector2(520, 330), UiKit.WithAlpha(Palette.UiInk, 0.78f));
@@ -37,21 +49,21 @@ namespace BodgeSquad.UI
             _order.outlineWidth = 0f;
 
             // How to play: shown on the join screen, toggled in game
-            var help = UiKit.Panel("HowToPlay", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -90), new Vector2(1240, 450), UiKit.WithAlpha(Palette.UiInk, 0.9f));
+            var help = UiKit.Panel("HowToPlay", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -136), new Vector2(1280, 500), UiKit.WithAlpha(Palette.UiInk, 0.9f));
             _help = help.gameObject;
-            var helpText = UiKit.Text("HowToPlayText", help.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(1180, 420), 27, TextAlignmentOptions.TopLeft);
+            var helpText = UiKit.Text("HowToPlayText", help.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(1220, 470), 26, TextAlignmentOptions.TopLeft);
             helpText.outlineWidth = 0f;
             string y = Hex(Palette.TintYellow), r = Hex(Palette.Accent), g = Hex(Palette.Pass), b = Hex(Palette.PlayerTints[2]);
             helpText.text =
                 $"<size=125%><b><color=#{y}>HOW TO PLAY</color></b></size>\n" +
-                $"<b>Goal:</b> get the house past the inspector. Find the cracks, holes, mould and bad wiring, deal with them, then ring the <b>doorbell</b>. Every red flag costs you money.\n\n" +
-                $"<color=#{y}>1.</color> Grab an item from the <b>SUPPLIES</b> table. Picking it up pays for it from the shared budget.\n" +
-                $"     <color=#{b}>Blue tag</color> = proper fix (safe, expensive).   <color=#{r}>Red tag</color> = bodge (cheap, might get caught).\n" +
-                $"<color=#{y}>2.</color> Do the work yourself: <b>hold [LMB]</b> and sweep the tool over the damage (works on anything). Tape: <b>click</b> per strip.\n" +
-                $"     Gaps you miss stay visible. Tools run dry as you use them, so don't waste them.\n" +
-                $"<color=#{y}>3.</color> <color=#{g}><b>Free trick:</b></color> push furniture in front of a defect, or carry a picture to a wall and press <b>[E]</b> to hang it.\n" +
-                $"<color=#{y}>4.</color> The meter next to the crosshair shows the chance the inspector catches it.\n\n" +
-                $"<size=85%>Move <b>WASD</b> · Look <b>mouse</b> · Run <b>Shift</b> · Jump <b>Space</b> · Grab/Drop <b>E</b> · Work <b>LMB</b> · Throw <b>RMB</b> · Help <b>Tab</b>     Gamepad: <b>Y</b> grab · <b>X</b> work · <b>LB</b> throw · <b>Select</b> help</size>";
+                $"<b>Goal:</b> get the house past the inspector. Deal with the cracks, holes, mould and bad wiring, then ring the <b>doorbell</b>. Every red flag costs money.\n\n" +
+                $"<color=#{y}>1.</color> Grab an item from the <b>SUPPLIES</b> table (it's paid from the shared budget). <color=#{b}>Blue tag</color> = proper fix. <color=#{r}>Red tag</color> = cheap bodge.\n" +
+                $"<color=#{y}>2.</color> <b>Hold [LMB]</b> and sweep the tool over the damage. Tape: <b>click</b> per strip. Tools run dry.\n" +
+                $"<color=#{y}>3.</color> <color=#{r}><b>The inspector drops in while you work.</b></color> If he <b>sees</b> you painting, papering or taping (the striped cone on the floor), " +
+                $"his suspicion fills and you're <b>caught red-handed</b>: −${RepairRules.RedHandedFine} and that defect is flagged for sure. Proper fixes are fine in front of him.\n" +
+                $"<color=#{y}>4.</color> <color=#{g}><b>Distract him:</b></color> throw something hard so it crashes (he goes to look), or switch on the <b>radio</b> in the corner. Bodge behind his back!\n" +
+                $"<color=#{y}>5.</color> Free cover: push furniture in front of a defect, or hang a picture with <b>[E]</b>.\n\n" +
+                $"<size=85%>Move <b>WASD</b> · Look <b>mouse</b> · Run <b>Shift</b> · Jump <b>Space</b> · Grab/Drop/Use <b>E</b> · Work <b>LMB</b> · Throw <b>RMB</b> · Help <b>Tab</b>     Gamepad: <b>Y</b> grab · <b>X</b> work · <b>LB</b> throw · <b>Select</b> help</size>";
             _help.SetActive(false);
             _helpHint = UiKit.Text("HelpHint", root, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-16, 10), new Vector2(520, 40), 24, TextAlignmentOptions.BottomRight);
             _helpHint.text = "[Tab] / (Select)  How to play";
@@ -105,6 +117,7 @@ namespace BodgeSquad.UI
             _helpHint.gameObject.SetActive(!lobby && inGame);
             _orderPanel.SetActive(false); // no checklist: finding the damage is part of the job
             if (Time.time > _feedUntil) _feed.text = "";
+            UpdateInspectorBar(job, !lobby && inGame);
 
             string money = $"BUDGET <b>${job.Budget}</b>   SPENT ${job.Spent}";
             _top.text = job.Phase switch
@@ -113,6 +126,29 @@ namespace BodgeSquad.UI
                 JobPhase.Inspection => $"{money}   ·   <color=#{Hex(Palette.Accent)}>INSPECTION</color>",
                 _ => $"{money}   ·   REPORT",
             };
+        }
+
+        void UpdateInspectorBar(JobManager job, bool show)
+        {
+            var insp = Inspector.Instance;
+            _inspBar.SetActive(show && insp != null);
+            if (!show || insp == null) return;
+            string r = Hex(Palette.Accent), y = Hex(Palette.TintYellow), g = Hex(Palette.Pass);
+            int secs = Mathf.Max(0, Mathf.CeilToInt(insp.NextVisitAt - job.Elapsed));
+            _inspText.text = insp.CurrentMode switch
+            {
+                Inspector.Mode.Away => $"INSPECTOR: <color=#{g}>outside</color>  <size=85%>back in ~{secs}s</size>",
+                Inspector.Mode.Patrol or Inspector.Mode.LookAround => $"INSPECTOR: <color=#{y}>looking around</color>",
+                Inspector.Mode.Investigate => $"INSPECTOR: <color=#{g}>checking a noise</color>",
+                Inspector.Mode.Radio => $"INSPECTOR: <color=#{g}>off to kill the radio</color>",
+                Inspector.Mode.Suspicious => $"INSPECTOR: <color=#{r}><b>SUSPICIOUS</b></color>",
+                Inspector.Mode.Scold => $"INSPECTOR: <color=#{r}><b>CAUGHT YOU!</b></color>",
+                Inspector.Mode.Leaving => $"INSPECTOR: <color=#{g}>leaving for a bit</color>",
+                _ => "INSPECTOR",
+            };
+            float s = insp.Suspicion;
+            ((RectTransform)_suspFill.transform).sizeDelta = new Vector2(250f * s, 20);
+            _suspFill.color = Color.Lerp(Palette.TintYellow, Palette.Accent, s);
         }
 
         void ShowReport()
@@ -128,12 +164,14 @@ namespace BodgeSquad.UI
                     : d.Caught
                         ? $"<color=#{Hex(Palette.Accent)}>FLAGGED −${RepairRules.Penalty(d.Severity)}</color>"
                         : $"<color=#{Hex(Palette.TintYellow)}>GOT AWAY WITH IT</color>";
+                if (d.Noted && d.State != RepairState.Fixed) verdict += $" <size=80%><color=#{Hex(Palette.Accent)}>(he saw you)</color></size>";
                 sb.AppendLine($"• {d.DisplayName} <size=80%>[{RepairRules.SeverityName(d.Severity)}]</size> — {RepairRules.StateVerb(d.EffectiveState)}{who}   {verdict}");
             }
             bool passed = job.CaughtCount == 0;
             sb.AppendLine();
             sb.AppendLine($"ROOM: {(passed ? $"<color=#{Hex(Palette.Pass)}>PASSED</color>" : $"<color=#{Hex(Palette.Accent)}>FAILED ({job.CaughtCount} flags)</color>")}");
-            sb.AppendLine($"Contract ${RepairRules.ContractFee}  −  penalties ${job.Penalties}  =  paid <b>${job.Payout}</b>");
+            if (job.Fines > 0) sb.AppendLine($"<color=#{Hex(Palette.Accent)}>Caught red-handed: −${job.Fines} in fines</color>");
+            sb.AppendLine($"Contract ${RepairRules.ContractFee}  −  penalties ${job.Penalties}{(job.Fines > 0 ? $"  −  fines ${job.Fines}" : "")}  =  paid <b>${job.Payout}</b>");
             sb.AppendLine($"Materials spent ${job.Spent}");
             var profitColor = job.Profit >= 0 ? Palette.Pass : Palette.Accent;
             sb.AppendLine($"<size=130%>PROFIT <b><color=#{Hex(profitColor)}>${job.Profit}</color></b></size>\n");

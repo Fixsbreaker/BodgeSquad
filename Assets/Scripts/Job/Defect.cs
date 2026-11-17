@@ -37,6 +37,7 @@ namespace BodgeSquad.Job
         NetworkVariable<ulong>[] _masks => _masksCache ??= new[] { _fixMask, _paintMask, _paperMask, _tapeMask };
         readonly NetworkVariable<int> _responsible = new(-1);
         readonly NetworkVariable<bool> _caught = new(false);
+        readonly NetworkVariable<bool> _noted = new(false); // he saw you bodge it: no luck at the final check
 
         public string Label => label;
         public DefectKind Kind => kind;
@@ -44,6 +45,8 @@ namespace BodgeSquad.Job
         public int ResponsiblePlayer => _responsible.Value; // 0-based, -1 = nobody
         public bool Inspected { get; set; }
         public bool Caught => _caught.Value;
+        public bool Noted => _noted.Value;
+        public void Note() { if (IsServer) _noted.Value = true; }
         public string DisplayName => $"{RepairRules.KindName(kind)} ({label})";
 
         ulong Mask(RepairRules.Layer l) => _preview ? _previewMasks[(int)l] : _masks[(int)l].Value;
@@ -171,6 +174,7 @@ namespace BodgeSquad.Job
             foreach (var m in _masks) m.Value = 0;
             _responsible.Value = -1;
             _caught.Value = false;
+            _noted.Value = false;
             Inspected = false;
         }
 

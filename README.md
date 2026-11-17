@@ -34,12 +34,13 @@ Up to four people, each on their own PC, who absolutely should not be trusted wi
 
 ## How a job plays
 
-1. **Read the work order.** Every defect in the house is listed with its severity: cosmetic, *will fail later*, or **safety hazard**.
+1. **Find the damage.** Cracks, holes, mould and bare wiring, each cosmetic, *will fail later*, or a **safety hazard**. Nobody hands you a checklist.
 2. **Shop on a shared budget.** Grab supplies off the table and you've paid for them. Blue tags are proper fixes (safe, expensive). Red tags are bodges like paint, wallpaper and duct tape (cheap, risky).
 3. **Do the work by hand.** Hold the mouse and sweep a tool over the damage: filler, anti-mould spray, paint, wallpaper; tape goes on one strip per click. Every patch is a grid, and any gap you miss stays visible. Tools run dry as you use them, misses included, so a sloppy painter has to buy another tin.
 4. **Or cheat for free.** Shove a wardrobe or sofa flat against the damage, or carry a picture to the wall and hang it over the crack.
-5. **Ring the doorbell.** The inspector walks the house, taps the walls and peers behind the sofa. Each bodge they catch gets a red flag and costs you money.
-6. **Get the report.** Every defect, who bodged it, the payout and your profit.
+5. **Don't get caught in the act.** The inspector lets himself in early "for a quick look around". If he *sees* you painting, papering or taping (his view is drawn on the floor), his suspicion fills and you're caught red-handed: a fine, and that defect goes in his notebook. Throw something so it crashes, or switch on the radio in the corner, and bodge behind his back while he checks.
+6. **Ring the doorbell.** The inspector walks the house, taps the walls and peers behind the sofa. Each bodge they catch gets a red flag and costs you money.
+7. **Get the report.** Every defect, who bodged it, the payout and your profit.
 
 Fixing everything properly costs more than the budget, so the game is about deciding what to cut.
 
@@ -54,6 +55,7 @@ Fixing everything properly costs more than the budget, so the game is about deci
 - **One rule table.** The chance of getting caught depends only on *how* you hid something and *how bad* it was ([`RepairRules.cs`](Assets/Scripts/Job/RepairRules.cs)). The same shortcut on the same severity always carries the same risk, so players can learn it.
 - **Real inspection categories.** Severity levels follow the structure of real home-inspection reports: cosmetic, future failure, safety.
 - **A physical shop.** Picking an item up pays for it, so the budget is something you can see on the table, not a menu.
+- **Stealth in a co-op job.** The inspector wanders the room while you work, so one player distracts him while the others slap paint on. Proper fixes are fine in front of him; only the cover-ups count.
 - **A live inspector.** Flags go up one at a time in front of everyone, so the payoff happens in the room, not on a results screen.
 - **A risk meter by the crosshair.** It shows each player the chance of getting caught *before* they commit to a bodge.
 

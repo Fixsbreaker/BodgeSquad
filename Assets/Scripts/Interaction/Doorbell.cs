@@ -9,7 +9,7 @@ namespace BodgeSquad.Interaction
         [SerializeField] Transform button;
 
         public string PressPrompt => JobManager.Instance != null && JobManager.Instance.IsSpawned && JobManager.Instance.Phase == JobPhase.Renovation
-            ? "call the inspector" : null;
+            ? "ring the doorbell: we're done, start the inspection" : null;
 
         public void Press(int playerIndex)
         {

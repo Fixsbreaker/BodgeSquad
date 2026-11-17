@@ -250,10 +250,11 @@ namespace BodgeSquad.Interaction
         int _lastKitType;
 
         [Rpc(SendTo.Server)]
-        void PaintRpc(NetworkObjectReference defectRef, int kitType, ulong cells)
+        void PaintRpc(NetworkObjectReference defectRef, int kitType, ulong cells, RpcParams p = default)
         {
             if (!defectRef.TryGet(out var no) || !no.TryGetComponent<Defect>(out var d)) return;
             var kit = (KitType)kitType;
+            Inspector.Instance?.ReportWork(p.Receive.SenderClientId, kit, d.transform.position + d.transform.forward * 0.05f);
             var job = JobManager.Instance;
             if (job != null && job.Phase != JobPhase.Renovation) return;
             if (d.State == RepairState.Fixed) return;

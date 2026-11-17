@@ -141,6 +141,63 @@ namespace BodgeSquad.Net
             yield return new WaitForSeconds(1.5f);
             Debug.Log($"[Smoke] {crack.DisplayName} state seen here: {crack.State} (fixed {crack.FixProgress:P0}) by P{crack.ResponsiblePlayer + 1}; filler left {(carry.HeldKit != null ? carry.HeldKit.Left : -1f):P0}");
 
+            // ---- the early inspector: bodge in front of him and get caught; noise; radio
+            {
+                var insp = Inspector.Instance;
+                var fpcI = me.GetComponent<FirstPersonController>();
+                float t0 = Time.time;
+                while (!insp.Present && Time.time - t0 < 20f) yield return null;
+                yield return new WaitForSeconds(1.5f);
+                Debug.Log($"[Smoke] Inspector present: {insp.Present}, mode {insp.CurrentMode}, at {insp.transform.position:F1}");
+                if (_shots != null)
+                {
+                    var side = insp.transform.position - insp.transform.forward * 1.5f + insp.transform.right * 2.5f; side.y = 0f;
+                    side.x = Mathf.Clamp(side.x, -5.3f, 5.3f); side.z = Mathf.Clamp(side.z, -4.3f, 4.3f);
+                    fpcI.Teleport(side, Quaternion.LookRotation(insp.transform.position + insp.transform.forward * 2f - side));
+                    fpcI.enabled = false;
+                    yield return null;
+                    me.GetComponent<CarryInteractor>().Eye.LookAt(insp.transform.position + insp.transform.forward * 2f);
+                    yield return new WaitForSeconds(0.3f);
+                    ScreenCapture.CaptureScreenshot($"{_shots}/inspector_cone.png");
+                    yield return null; yield return null;
+                    fpcI.enabled = true;
+                }
+                t0 = Time.time;
+                float peak = 0f;
+                var mode0 = insp.CurrentMode;
+                while (job.Fines == 0 && Time.time - t0 < 10f)
+                {
+                    var front = insp.transform.position + insp.transform.forward * 2.2f; front.y = 0f;
+                    fpcI.Teleport(front, Quaternion.LookRotation(insp.transform.position - front));
+                    var h = new RaycastHit { point = front + Vector3.up * 1.1f, normal = -insp.transform.forward };
+                    SurfaceMarks.Instance.Place(KitType.PaintTin, h, 0.2f, 0f);
+                    peak = Mathf.Max(peak, insp.Suspicion);
+                    if (insp.CurrentMode != mode0) { Debug.Log($"[Smoke] Inspector mode → {insp.CurrentMode} (suspicion {insp.Suspicion:P0})"); mode0 = insp.CurrentMode; }
+                    yield return new WaitForSeconds(0.1f);
+                }
+                Debug.Log($"[Smoke] Bodging in front of the inspector: fines {job.Fines} after {Time.time - t0:0.0}s (peak suspicion seen {peak:P0}); noted defects: {System.Linq.Enumerable.Count(job.Defects, d => d.Noted)}");
+                if (_shots != null) { ScreenCapture.CaptureScreenshot($"{_shots}/caught.png"); yield return null; yield return null; }
+                fpcI.Teleport(new Vector3(-1f, 0f, 0f), Quaternion.identity);
+                yield return new WaitForSeconds(6f); // scold + grace
+
+                if (Unity.Netcode.NetworkManager.Singleton.IsServer)
+                {
+                    insp.ToggleRadioRpc(me.Index);
+                    bool went = false; t0 = Time.time;
+                    yield return new WaitForSeconds(0.3f);
+                    bool on = insp.RadioOn;
+                    while (insp.RadioOn && Time.time - t0 < 15f) { went |= insp.CurrentMode == Inspector.Mode.Radio; yield return null; }
+                    Debug.Log($"[Smoke] Radio: switched on {on}, inspector went over {went}, off again {!insp.RadioOn} after {Time.time - t0:0.0}s");
+                }
+                else
+                {
+                    insp.NoiseRpc(new Vector3(3.5f, 0.2f, -3.5f), 1f);
+                    yield return new WaitForSeconds(0.5f);
+                    Debug.Log($"[Smoke] Noise: inspector mode now {insp.CurrentMode}");
+                    yield return new WaitForSeconds(6f);
+                }
+            }
+
             job.RingDoorbellRpc(me.Index);
             yield return new WaitForSeconds(2f);
             Debug.Log($"[Smoke] Phase seen here: {job.Phase}");

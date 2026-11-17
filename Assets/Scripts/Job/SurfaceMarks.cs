@@ -122,8 +122,11 @@ namespace BodgeSquad.Job
         }
 
         [Rpc(SendTo.Server)]
-        void AddRpc(Mark m)
+        void AddRpc(Mark m, RpcParams p = default)
         {
+            var world = m.Pos;
+            if (m.Parent != World && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(m.Parent, out var po)) world = po.transform.TransformPoint(m.Pos);
+            Inspector.Instance?.ReportWork(p.Receive.SenderClientId, (KitType)m.Kit, world);
             if (_marks.Count >= MaxMarks) _marks.RemoveAt(0);
             _marks.Add(m);
         }

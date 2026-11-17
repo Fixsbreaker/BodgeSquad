@@ -19,6 +19,15 @@ namespace BodgeSquad.Job
         public const int ContractFee = 1200;
         public const float RenovationSeconds = 8 * 60;
 
+        // ---- the inspector drops in while you work -----------------------------------------
+        public const int RedHandedFine = 100;      // caught bodging in front of him
+        public const float FirstVisitAt = 30f;     // seconds into the job
+        public const float ViewRange = 5.5f;       // metres
+        public const float ViewHalfAngle = 38f;    // degrees each side
+
+        // Cheap cover-ups he must not see you doing (proper fixes are fine to do in front of him)
+        public static bool IsBodge(KitType k) => k is KitType.PaintTin or KitType.WallpaperRoll or KitType.DuctTape;
+
         public static int Price(KitType k) => k switch
         {
             KitType.Filler => 60,

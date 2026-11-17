@@ -13,7 +13,7 @@ namespace BodgeSquad.UI
         [SerializeField] Camera playerCamera;
         [SerializeField] CarryInteractor interactor;
 
-        TextMeshProUGUI _prompt, _message, _meterLabel;
+        TextMeshProUGUI _prompt, _message, _meterLabel, _seen;
         UnityEngine.UI.Image _crosshair, _meterFill;
         GameObject _meter;
         RectTransform[] _brackets;
@@ -34,6 +34,7 @@ namespace BodgeSquad.UI
 
             _crosshair = UiKit.Panel("Crosshair", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(10, 10), UiKit.WithAlpha(Palette.UiPaper, 0.9f));
             _prompt = UiKit.Text("Prompt", root, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 60), new Vector2(1600, 140), 44, TextAlignmentOptions.Bottom);
+            _seen = UiKit.Text("SeenWarning", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, 120), new Vector2(1200, 70), 46, TextAlignmentOptions.Center, Palette.Accent);
             _message = UiKit.Text("Message", root, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 210), new Vector2(1500, 70), 40, TextAlignmentOptions.Bottom, Palette.Accent);
 
             // Obviousness meter, right of the crosshair
@@ -180,6 +181,7 @@ namespace BodgeSquad.UI
             }
 
             _prompt.text = prompt;
+            _seen.text = SeenWarning(kit);
             _message.text = interactor.Message ?? "";
             if (_debug != null) _debug.text = $"looking at: {interactor.DebugLook}{(interactor.LookCarryable != null ? $"  → can grab {interactor.LookCarryable.name}" : "")}";
             var target = held == null ? interactor.LookCarryable : null;
@@ -194,5 +196,20 @@ namespace BodgeSquad.UI
                 _meterLabel.text = meterText;
             }
         }
-    }
+    
+        // Is the inspector looking at me right now? Shout about it while I'm holding a bodge.
+        string SeenWarning(RepairKit kit)
+        {
+            var insp = Inspector.Instance;
+            var job = JobManager.Instance;
+            if (insp == null || job == null || job.Phase != JobPhase.Renovation || !insp.Watching) return "";
+            var me = interactor.transform;
+            if (!insp.CanSee(me.position + Vector3.up * 1.2f, me)) return "";
+            bool bodging = kit != null && RepairRules.IsBodge(kit.Type);
+            if (bodging && interactor.Working)
+                return Time.time % 0.4f < 0.25f ? "HE'S WATCHING YOU BODGE! STOP!" : "";
+            return bodging ? "<size=75%>The inspector can see you: don't bodge now</size>"
+                           : "<size=65%><color=#FFE08A>The inspector can see you</color></size>";
+        }
+}
 }

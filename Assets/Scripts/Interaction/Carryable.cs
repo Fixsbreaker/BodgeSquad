@@ -32,6 +32,18 @@ namespace BodgeSquad.Interaction
             HomeRotation = transform.rotation;
         }
 
+        // Thrown things crash: the inspector hears it and comes to look (the owner simulates the physics)
+        float _nextNoise;
+        void OnCollisionEnter(Collision c)
+        {
+            if (!IsSpawned || !IsOwner || Holder != null || Time.time < _nextNoise) return;
+            float speed = c.relativeVelocity.magnitude;
+            if (speed < 4.5f) return;
+            _nextNoise = Time.time + 1.5f;
+            var insp = BodgeSquad.Job.Inspector.Instance;
+            if (insp != null && insp.IsSpawned) insp.NoiseRpc(c.GetContact(0).point, Mathf.Clamp01(speed / 9f) * Mathf.Clamp(Body.mass, 0.8f, 3f));
+        }
+
         // Owner only: put it somewhere instantly
         public void Warp(Vector3 pos, Quaternion rot)
         {

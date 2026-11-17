@@ -23,11 +23,18 @@ namespace BodgeSquad.Job
         readonly NetworkVariable<int> _budget = new(RepairRules.StartingBudget);
         readonly NetworkVariable<int> _spent = new(0);
         readonly NetworkVariable<float> _timeLeft = new(RepairRules.RenovationSeconds);
+        readonly NetworkVariable<int> _fines = new(0);
 
         public JobPhase Phase => (JobPhase)_phase.Value;
         public int Budget => _budget.Value;
         public int Spent => _spent.Value;
         public float TimeLeft => _timeLeft.Value;
+        public float Elapsed => RepairRules.RenovationSeconds - _timeLeft.Value;
+        public int Fines => _fines.Value;
+        public Inspector Inspector => inspector;
+
+        // Host only: caught red-handed
+        public void AddFine(int amount) { if (IsServer) _fines.Value += amount; }
         public IReadOnlyList<Defect> Defects => _defects;
         public System.Random Luck { get; private set; }
 
@@ -152,6 +159,7 @@ namespace BodgeSquad.Job
             foreach (var b in NetworkBodger.All) b.ResetToSpawnRpc();
             _budget.Value = RepairRules.StartingBudget;
             _spent.Value = 0;
+            _fines.Value = 0;
             _timeLeft.Value = RepairRules.RenovationSeconds;
             _phase.Value = (int)JobPhase.Renovation;
             ClearMarkersRpc();
@@ -170,7 +178,7 @@ namespace BodgeSquad.Job
         {
             get { int sum = 0; foreach (var d in _defects) if (d.Caught) sum += RepairRules.Penalty(d.Severity); return sum; }
         }
-        public int Payout => Mathf.Max(0, RepairRules.ContractFee - Penalties);
+        public int Payout => Mathf.Max(0, RepairRules.ContractFee - Penalties - Fines);
         public int Profit => Payout - Spent;
         public int CaughtCount { get { int n = 0; foreach (var d in _defects) if (d.Caught) n++; return n; } }
     }
