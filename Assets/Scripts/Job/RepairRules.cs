@@ -21,6 +21,7 @@ namespace BodgeSquad.Job
 
         // ---- the inspector drops in while you work -----------------------------------------
         public const int RedHandedFine = 100;      // caught bodging in front of him
+        public const int AssaultFine = 50;         // he saw who threw it
         public const float FirstVisitAt = 30f;     // seconds into the job
         public const float ViewRange = 5.5f;       // metres
         public const float ViewHalfAngle = 38f;    // degrees each side

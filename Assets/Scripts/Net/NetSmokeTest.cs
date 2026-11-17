@@ -188,12 +188,51 @@ namespace BodgeSquad.Net
                     bool on = insp.RadioOn;
                     while (insp.RadioOn && Time.time - t0 < 15f) { went |= insp.CurrentMode == Inspector.Mode.Radio; yield return null; }
                     Debug.Log($"[Smoke] Radio: switched on {on}, inspector went over {went}, off again {!insp.RadioOn} after {Time.time - t0:0.0}s");
+                    yield return new WaitForSeconds(1.5f);
+                    // sneak up behind him and lob a paint tin at his head
+                    RepairKit tin = null;
+                    foreach (var k in FindObjectsByType<RepairKit>()) if (k.Type == KitType.PaintTin && !k.Paid) tin = k;
+                    var ci = me.GetComponent<CarryInteractor>();
+                    if (tin != null)
+                    {
+                        var at = tin.transform.position + Vector3.back * 1.2f; at.y = 0f;
+                        fpcI.Teleport(at, Quaternion.LookRotation(Vector3.forward));
+                        yield return new WaitForSeconds(0.3f);
+                        ci.TestGrab(tin.GetComponent<Carryable>());
+                        yield return new WaitForSeconds(0.8f);
+                        int puddles0 = Spills.Instance.Count;
+                        var behind = insp.transform.position - insp.transform.forward * 2.0f; behind.y = 0f;
+                        fpcI.Teleport(behind, Quaternion.LookRotation(insp.transform.position - behind));
+                        fpcI.enabled = false;
+                        yield return null;
+                        ci.Eye.LookAt(insp.transform.position + Vector3.up * 1.4f);
+                        yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
+                        ci.TestThrow();
+                        bool blinded = false; t0 = Time.time;
+                        while (Time.time - t0 < 2f) { blinded |= insp.CurrentMode == Inspector.Mode.Blinded; if (blinded) break; yield return null; }
+                        fpcI.enabled = true;
+                        Debug.Log($"[Smoke] Paint tin at the inspector's head: blinded {blinded}, fines now {job.Fines}, puddles {puddles0} → {Spills.Instance.Count}");
+                        yield return new WaitForSeconds(3.5f);
+                        Debug.Log($"[Smoke] Inspector after blinding: {insp.CurrentMode}");
+                    }
                 }
                 else
                 {
                     insp.NoiseRpc(new Vector3(3.5f, 0.2f, -3.5f), 1f);
                     yield return new WaitForSeconds(0.5f);
                     Debug.Log($"[Smoke] Noise: inspector mode now {insp.CurrentMode}");
+                    // a puddle in the middle of the room, and a run straight through it
+                    Spills.Instance.SpillRpc(new Vector3(0.5f, 0f, -0.5f), 0.8f);
+                    yield return new WaitForSeconds(0.6f);
+                    fpcI.Teleport(new Vector3(-0.3f, 0f, -0.5f), Quaternion.LookRotation(Vector3.right));
+                    yield return null;
+                    fpcI.TestRun(new Vector3(6f, 0f, 0f));
+                    bool down = false; t0 = Time.time;
+                    while (Time.time - t0 < 1f) { down |= me.IsDown; if (down) break; yield return null; }
+                    if (_shots != null) { yield return new WaitForSeconds(0.4f); ScreenCapture.CaptureScreenshot($"{_shots}/slipped.png"); yield return null; yield return null; }
+                    Debug.Log($"[Smoke] Ran into a paint puddle ({Spills.Instance.Count} puddles): fell over {down}");
+                    yield return new WaitForSeconds(2.6f);
+                    Debug.Log($"[Smoke] Back on feet: {!me.IsDown && !fpcI.IsDown}");
                     yield return new WaitForSeconds(6f);
                 }
             }

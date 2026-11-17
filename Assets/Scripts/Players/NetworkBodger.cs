@@ -23,6 +23,11 @@ namespace BodgeSquad.Players
         [SerializeField] Behaviour[] ownerOnly;         // FirstPersonController, BodgerInput, PlayerHud
 
         public readonly NetworkVariable<int> Slot = new(-1);
+        // Flat on the floor (slipped in paint, hit by flying junk). Written by the owner, drawn everywhere.
+        readonly NetworkVariable<bool> _down = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public bool IsDown => _down.Value;
+        float _tip, _tipVel;
+        float _downUntil;
 
         public static NetworkBodger Local { get; private set; }
         public static readonly List<NetworkBodger> All = new();
@@ -98,6 +103,32 @@ namespace BodgeSquad.Players
             if (root == null || root.transform.childCount == 0) return;
             var sp = root.transform.GetChild(Index % root.transform.childCount);
             GetComponent<FirstPersonController>().Teleport(sp.position, sp.rotation);
+        }
+
+        // Anyone → owner: you've been hit by something / slipped
+        [Rpc(SendTo.Owner)]
+        public void KnockDownRpc(Vector3 shove, string why) => KnockDown(shove, why);
+
+        public void KnockDown(Vector3 shove, string why)
+        {
+            if (!IsOwner || _down.Value) return;
+            _down.Value = true;
+            _downUntil = Time.time + 2.2f;
+            GetComponent<CarryInteractor>().Fumble();
+            GetComponent<CarryInteractor>().Flash(why);
+            GetComponent<FirstPersonController>().KnockDown(shove, 2.2f);
+            Debug.Log($"[Bodger] P{Index + 1} down: {why}");
+        }
+
+        void Update()
+        {
+            if (IsOwner && _down.Value && Time.time >= _downUntil) _down.Value = false;
+            // a springy topple backwards, pivoting on the feet; and back up again
+            float target = _down.Value ? -88f : 0f;
+            float k = 160f, damp = 14f;
+            _tipVel += ((target - _tip) * k - _tipVel * damp) * Time.deltaTime;
+            _tip += _tipVel * Time.deltaTime;
+            if (visualRoot != null) visualRoot.localRotation = Quaternion.Euler(_tip, 0, _tip * -0.15f);
         }
 
         // Host → this bodger's owner: back to the start (new job)

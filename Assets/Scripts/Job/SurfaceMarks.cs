@@ -127,6 +127,10 @@ namespace BodgeSquad.Job
             var world = m.Pos;
             if (m.Parent != World && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(m.Parent, out var po)) world = po.transform.TransformPoint(m.Pos);
             Inspector.Instance?.ReportWork(p.Receive.SenderClientId, (KitType)m.Kit, world);
+            // painting the inspector's face: works about as well as you'd expect
+            var insp = Inspector.Instance;
+            if (insp != null && m.Parent != World && m.Parent == insp.NetworkObjectId && (KitType)m.Kit == KitType.PaintTin && m.Pos.y > 1.25f)
+                insp.ServerHit(p.Receive.SenderClientId, KitType.PaintTin);
             if (_marks.Count >= MaxMarks) _marks.RemoveAt(0);
             _marks.Add(m);
         }

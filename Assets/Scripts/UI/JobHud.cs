@@ -49,9 +49,9 @@ namespace BodgeSquad.UI
             _order.outlineWidth = 0f;
 
             // How to play: shown on the join screen, toggled in game
-            var help = UiKit.Panel("HowToPlay", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -136), new Vector2(1280, 500), UiKit.WithAlpha(Palette.UiInk, 0.9f));
+            var help = UiKit.Panel("HowToPlay", root, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -136), new Vector2(1280, 540), UiKit.WithAlpha(Palette.UiInk, 0.9f));
             _help = help.gameObject;
-            var helpText = UiKit.Text("HowToPlayText", help.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(1220, 470), 26, TextAlignmentOptions.TopLeft);
+            var helpText = UiKit.Text("HowToPlayText", help.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(1220, 510), 26, TextAlignmentOptions.TopLeft);
             helpText.outlineWidth = 0f;
             string y = Hex(Palette.TintYellow), r = Hex(Palette.Accent), g = Hex(Palette.Pass), b = Hex(Palette.PlayerTints[2]);
             helpText.text =
@@ -61,7 +61,8 @@ namespace BodgeSquad.UI
                 $"<color=#{y}>2.</color> <b>Hold [LMB]</b> and sweep the tool over the damage. Tape: <b>click</b> per strip. Tools run dry.\n" +
                 $"<color=#{y}>3.</color> <color=#{r}><b>The inspector drops in while you work.</b></color> If he <b>sees</b> you painting, papering or taping (the striped cone on the floor), " +
                 $"his suspicion fills and you're <b>caught red-handed</b>: −${RepairRules.RedHandedFine} and that defect is flagged for sure. Proper fixes are fine in front of him.\n" +
-                $"<color=#{y}>4.</color> <color=#{g}><b>Distract him:</b></color> throw something hard so it crashes (he goes to look), or switch on the <b>radio</b> in the corner. Bodge behind his back!\n" +
+                $"<color=#{y}>4.</color> <color=#{g}><b>Distract him:</b></color> throw something so it crashes (he goes to look), switch on the <b>radio</b>, or <b>throw it AT him</b>: stunned 4s, a paint tin blinds him 3s (−${RepairRules.AssaultFine} if he sees who threw it).\n" +
+                $"     Careful: paint tins burst into <b>slippery puddles</b>. Run through one and you're on your back.\n" +
                 $"<color=#{y}>5.</color> Free cover: push furniture in front of a defect, or hang a picture with <b>[E]</b>.\n\n" +
                 $"<size=85%>Move <b>WASD</b> · Look <b>mouse</b> · Run <b>Shift</b> · Jump <b>Space</b> · Grab/Drop/Use <b>E</b> · Work <b>LMB</b> · Throw <b>RMB</b> · Help <b>Tab</b>     Gamepad: <b>Y</b> grab · <b>X</b> work · <b>LB</b> throw · <b>Select</b> help</size>";
             _help.SetActive(false);
@@ -144,6 +145,8 @@ namespace BodgeSquad.UI
                 Inspector.Mode.Suspicious => $"INSPECTOR: <color=#{r}><b>SUSPICIOUS</b></color>",
                 Inspector.Mode.Scold => $"INSPECTOR: <color=#{r}><b>CAUGHT YOU!</b></color>",
                 Inspector.Mode.Leaving => $"INSPECTOR: <color=#{g}>leaving for a bit</color>",
+                Inspector.Mode.Stunned => $"INSPECTOR: <color=#{g}><b>SEEING STARS</b></color>",
+                Inspector.Mode.Blinded => $"INSPECTOR: <color=#{g}><b>BLINDED BY PAINT</b></color>",
                 _ => "INSPECTOR",
             };
             float s = insp.Suspicion;

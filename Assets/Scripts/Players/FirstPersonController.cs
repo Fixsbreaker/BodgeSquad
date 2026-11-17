@@ -42,6 +42,21 @@ namespace BodgeSquad.Players
             _planarVelocity = Vector3.zero; _verticalVelocity = 0f;
         }
 
+        // ---- slapstick: paint puddles and pratfalls ---------------------------------------
+        float _downUntil, _getUp;
+        bool _wasSlippery;
+        public bool IsDown => Time.time < _downUntil;
+
+        public void KnockDown(Vector3 shove, float seconds)
+        {
+            _downUntil = Time.time + seconds;
+            _planarVelocity = new Vector3(shove.x, 0, shove.z) + new Vector3(_planarVelocity.x, 0, _planarVelocity.z) * 0.6f;
+            _verticalVelocity = Mathf.Max(_verticalVelocity, 2.5f);
+        }
+
+        // Test hook: running at this speed right now
+        public void TestRun(Vector3 velocity) => _planarVelocity = velocity;
+
         public Vector3 Velocity => _cc != null ? _cc.velocity : Vector3.zero;
         public float NormalizedSpeed => Mathf.Clamp01(new Vector3(_planarVelocity.x, 0, _planarVelocity.z).magnitude / walkSpeed);
         public bool IsGrounded => _cc != null && _cc.isGrounded;
@@ -58,6 +73,7 @@ namespace BodgeSquad.Players
         void Update()
         {
             if (_input == null || !_input.Ready) return;
+            if (IsDown || _getUp > 0f) { Sprawl(); return; }
             Look();
             Move();
             HeadBob();
@@ -81,6 +97,21 @@ namespace BodgeSquad.Players
             Vector3 target = (transform.right * m.x + transform.forward * m.y) * speed;
 
             float rate = target.sqrMagnitude > 0.01f ? acceleration : deceleration;
+            // wet paint: like ice, and running into it at speed puts you on your back
+            var spills = BodgeSquad.Job.Spills.Instance;
+            bool slippery = _cc.isGrounded && spills != null && spills.IsSlippery(transform.position);
+            if (slippery)
+            {
+                float speedNow = new Vector3(_planarVelocity.x, 0, _planarVelocity.z).magnitude;
+                if (!_wasSlippery && speedNow > walkSpeed * 1.05f)
+                {
+                    _wasSlippery = true;
+                    GetComponent<NetworkBodger>()?.KnockDown(_planarVelocity * 0.6f, "Whoops! Slipped in the paint!");
+                    return;
+                }
+                rate = 2.5f;
+            }
+            _wasSlippery = slippery;
             _planarVelocity = Vector3.MoveTowards(_planarVelocity, target, rate * Time.deltaTime);
 
             if (_cc.isGrounded)
@@ -92,6 +123,23 @@ namespace BodgeSquad.Players
             _verticalVelocity += gravity * Time.deltaTime;
 
             _cc.Move((_planarVelocity + Vector3.up * _verticalVelocity) * Time.deltaTime);
+        }
+
+        // Lying on the floor: slide to a stop, the view rolls over and looks at the ceiling, then you get up
+        void Sprawl()
+        {
+            bool down = IsDown;
+            _getUp = down ? 0.45f : Mathf.Max(0f, _getUp - Time.deltaTime);
+            if (down && _getUp == 0f) _getUp = 0.45f;
+            float lie = down ? 1f : _getUp / 0.45f;
+            _planarVelocity = Vector3.MoveTowards(_planarVelocity, Vector3.zero, 5f * Time.deltaTime);
+            if (_cc.isGrounded && _verticalVelocity < 0f) _verticalVelocity = -2f;
+            _verticalVelocity += gravity * Time.deltaTime;
+            _cc.Move((_planarVelocity + Vector3.up * _verticalVelocity) * Time.deltaTime);
+            var lyingPos = new Vector3(0.2f, 0.25f, -0.5f);
+            var lyingRot = Quaternion.Euler(-10f, 0f, 78f); // cheek on the floor, the room on its side
+            eye.localPosition = Vector3.Lerp(eye.localPosition, Vector3.Lerp(_eyeRest, lyingPos, lie), 12f * Time.deltaTime);
+            eye.localRotation = Quaternion.Slerp(eye.localRotation, Quaternion.Slerp(Quaternion.Euler(_pitch, 0, 0), lyingRot, lie), 10f * Time.deltaTime);
         }
 
         void HeadBob()

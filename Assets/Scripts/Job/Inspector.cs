@@ -22,7 +22,7 @@ namespace BodgeSquad.Job
     // mood, suspicion and the radio to every screen.
     public class Inspector : NetworkBehaviour
     {
-        public enum Mode { Away, Patrol, LookAround, Investigate, Radio, Suspicious, Scold, Leaving, Final }
+        public enum Mode { Away, Patrol, LookAround, Investigate, Radio, Suspicious, Scold, Leaving, Final, Stunned, Blinded }
 
         [SerializeField] Transform body;          // leans/taps
         [SerializeField] Transform entrance;      // where he appears
@@ -51,7 +51,7 @@ namespace BodgeSquad.Job
         public bool Present => _visible.Value;
         public bool RadioOn => _radioOn.Value;
         public float NextVisitAt => _nextVisit.Value;
-        public bool Watching => Present && CurrentMode != Mode.Final && CurrentMode != Mode.Away;
+        public bool Watching => Present && CurrentMode is not (Mode.Final or Mode.Away or Mode.Stunned or Mode.Blinded);
 
         void Awake()
         {
@@ -72,6 +72,19 @@ namespace BodgeSquad.Job
             ShowBody(_visible.Value);
             BuildCone();
             BuildIcon();
+            BuildDaze();
+            // something to hit: thrown junk bounces off him (kinematic, moved by the host / NetworkTransform)
+            if (!TryGetComponent<Collider>(out _))
+            {
+                var cap = gameObject.AddComponent<CapsuleCollider>();
+                cap.center = new Vector3(0, 0.95f, 0); cap.height = 1.9f; cap.radius = 0.3f;
+            }
+            if (!TryGetComponent<Rigidbody>(out var rb)) rb = gameObject.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            _voice = gameObject.AddComponent<AudioSource>();
+            _voice.spatialBlend = 0.8f; _voice.minDistance = 2.5f; _voice.maxDistance = 30f; _voice.volume = 0.9f;
+            ShowBody(_visible.Value);
             _radio = Radio.Build(RadioSpot, this);
             if (IsServer)
             {
@@ -88,6 +101,7 @@ namespace BodgeSquad.Job
         void ShowBody(bool on)
         {
             foreach (var r in body.GetComponentsInChildren<Renderer>(true)) r.enabled = on;
+            if (TryGetComponent<Collider>(out var col)) col.enabled = on;
         }
 
         // ================================================================ final inspection
@@ -293,7 +307,7 @@ namespace BodgeSquad.Job
         public void NoiseRpc(Vector3 point, float loudness)
         {
             var m = CurrentMode;
-            if (!Present || m is Mode.Final or Mode.Leaving or Mode.Scold or Mode.Radio || Time.time < _noiseCooldown) return;
+            if (!Present || m is Mode.Final or Mode.Leaving or Mode.Scold or Mode.Radio or Mode.Stunned or Mode.Blinded || Time.time < _noiseCooldown) return;
             if (loudness < 0.3f) return;
             _noiseCooldown = Time.time + 3f;
             _goal = ClampToRoom(point);
@@ -406,6 +420,29 @@ namespace BodgeSquad.Job
                     }
                     break;
 
+                case Mode.Stunned:
+                case Mode.Blinded:
+                    _lookT += Time.deltaTime;
+                    if (mode == Mode.Blinded)
+                    {
+                        // staggers about, arms out, can't see a thing
+                        if (Time.time >= _stumbleNext) { _stumbleNext = Time.time + 0.9f; _goal = ClampToRoom(transform.position + new Vector3(UnityEngine.Random.Range(-1f, 1f), 0, UnityEngine.Random.Range(-1f, 1f))); }
+                        StepTowards(_goal, walkSpeed * 0.45f);
+                        body.localRotation = Quaternion.Euler(Mathf.Sin(_lookT * 7f) * 6f, 0, Mathf.Sin(_lookT * 4.3f) * 9f);
+                    }
+                    else body.localRotation = Quaternion.Euler(Mathf.Sin(_lookT * 3.1f) * 9f, 0, Mathf.Sin(_lookT * 2.3f) * 14f); // woozy sway
+                    if (Time.time >= _modeUntil)
+                    {
+                        body.localRotation = Quaternion.identity;
+                        string[] back = mode == Mode.Blinded
+                            ? new[] { "Inspector wipes his glasses. \"WHO. THREW. THAT.\"", "Inspector blinks paint out of his eyes. \"Unbelievable.\"" }
+                            : new[] { "Inspector shakes it off. \"I'm FINE. I'm fine.\"", "Inspector comes round. \"…Where was I?\"" };
+                        job.Say(back[UnityEngine.Random.Range(0, back.Length)]);
+                        YellRpc(2);
+                        PickPatrolGoal(job);
+                    }
+                    break;
+
                 case Mode.Leaving:
                     if (StepTowards(entrance.position, walkSpeed * 1.2f))
                     {
@@ -505,7 +542,7 @@ namespace BodgeSquad.Job
             float dt = 0.1f;
             _nextVision = Time.time + dt;
             var m = CurrentMode;
-            if (m is Mode.Scold or Mode.Away or Mode.Final) return;
+            if (m is Mode.Scold or Mode.Away or Mode.Final or Mode.Stunned or Mode.Blinded) return;
 
             NetworkBodger caughtBy = null;
             Work caughtWork = default;
@@ -560,6 +597,95 @@ namespace BodgeSquad.Job
             var d2 = who.transform.position - transform.position; d2.y = 0;
             if (d2.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(d2);
             SetMode(Mode.Scold, 2.5f);
+            YellRpc(2);
+        }
+
+        // ---------------------------------------------------------------- things thrown at him
+        float _stunImmuneUntil, _stumbleNext;
+
+        // The thrower's machine reports the hit (it runs the physics of what it threw)
+        [Rpc(SendTo.Server)]
+        public void HitRpc(int kit, RpcParams p = default) => ServerHit(p.Receive.SenderClientId, (KitType)kit);
+
+        public void ServerHit(ulong sender, KitType kit)
+        {
+            if (!IsServer) return;
+            var job = JobManager.Instance;
+            var m = CurrentMode;
+            if (job == null || job.Phase != JobPhase.Renovation || !Present || m is Mode.Final or Mode.Away) return;
+            bool paint = kit == KitType.PaintTin;
+            YellRpc(paint ? 1 : 0);
+            if (m is Mode.Stunned or Mode.Blinded || Time.time < _stunImmuneUntil)
+            {
+                job.Say("Inspector: \"OW! Will you STOP that!\"");
+                return;
+            }
+            NetworkBodger thrower = null;
+            foreach (var b in NetworkBodger.All) if (b != null && b.OwnerClientId == sender) thrower = b;
+            bool saw = thrower != null && CanSee(thrower.transform.position + Vector3.up * 1.2f, thrower.transform);
+            if (saw) job.AddFine(RepairRules.AssaultFine);
+            float secs = paint ? 3f : 4f;
+            SetMode(paint ? Mode.Blinded : Mode.Stunned, secs);
+            _stunImmuneUntil = Time.time + secs + 5f;
+            _suspicion.Value = Mathf.Max(0f, _suspicion.Value - 0.5f);
+            string who = thrower != null ? $"P{thrower.Index + 1}" : "Someone";
+            string fine = saw ? $" He saw {who} do it: −${RepairRules.AssaultFine}." : $" He never saw who did it. Go go go!";
+            job.Say(paint ? $"SPLAT! {who} got paint in the inspector's eyes! Blind for {secs:0}s.{fine}"
+                          : $"BONK! {who} beaned the inspector. He's seeing stars for {secs:0}s.{fine}");
+            Debug.Log($"[Inspector] Hit by {kit} from {who}, saw thrower: {saw}");
+        }
+
+        // ---------------------------------------------------------------- his voice
+        AudioSource _voice;
+        static AudioClip[] _grunts;
+
+        [Rpc(SendTo.Everyone)]
+        void YellRpc(int kind)
+        {
+            if (_voice == null) return;
+            _grunts ??= new[] { Grunt(0), Grunt(1), Grunt(2) };
+            _voice.pitch = UnityEngine.Random.Range(0.92f, 1.08f);
+            _voice.PlayOneShot(_grunts[Mathf.Clamp(kind, 0, _grunts.Length - 1)]);
+        }
+
+        // An angry little man, synthesised: a buzzy voice through two "vowel" resonances, with a growl.
+        // 0 = "OOF!" (hit), 1 = "AAGH!" (paint), 2 = "HMPH!" (cross)
+        static AudioClip Grunt(int kind)
+        {
+            const int rate = 22050;
+            float len = kind switch { 0 => 0.42f, 1 => 0.8f, _ => 0.36f };
+            int n = (int)(len * rate);
+            var data = new float[n];
+            float f1 = kind == 0 ? 520f : kind == 1 ? 760f : 430f;   // first formant: "oo" / "ah" / "uh"
+            float f2 = kind == 0 ? 900f : kind == 1 ? 1250f : 1050f;
+            float b1x = 0, b1y = 0, b2x = 0, b2y = 0, phase = 0;
+            var rnd = new System.Random(11 + kind);
+            float Res(float x, float f, ref float y1, ref float y2)
+            {
+                float r = 0.985f, w = 2f * Mathf.PI * f / rate;
+                float y = (1 - r) * x + 2 * r * Mathf.Cos(w) * y1 - r * r * y2;
+                y2 = y1; y1 = y; return y;
+            }
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)rate, u = t / len;
+                float f0 = kind switch
+                {
+                    0 => Mathf.Lerp(230f, 120f, u),                       // oof: falls
+                    1 => 170f + 120f * Mathf.Sin(u * Mathf.PI) + 20f * Mathf.Sin(t * 40f), // aagh: rises, wobbles
+                    _ => Mathf.Lerp(150f, 110f, u),                       // hmph
+                };
+                f0 *= 1f + 0.06f * Mathf.Sin(t * 2f * Mathf.PI * 28f);   // growl
+                phase += f0 / rate;
+                float src = (Mathf.Repeat(phase, 1f) * 2f - 1f) + ((float)rnd.NextDouble() - 0.5f) * 0.35f;
+                float v = Res(src, f1, ref b1x, ref b1y) * 1.0f + Res(src, f2, ref b2x, ref b2y) * 0.6f;
+                float env = Mathf.Clamp01(t / 0.025f) * Mathf.Clamp01((len - t) / 0.12f);
+                if (kind == 2 && t < 0.06f) v = ((float)rnd.NextDouble() - 0.5f) * 0.6f; // the breathy "h"
+                data[i] = Mathf.Clamp(v * 9f * env, -1f, 1f);
+            }
+            var clip = AudioClip.Create($"Grunt{kind}", n, 1, rate, false);
+            clip.SetData(data, 0);
+            return clip;
         }
 
         // ================================================================ visuals (every machine)
@@ -651,11 +777,63 @@ namespace BodgeSquad.Job
             _icon.text = "";
         }
 
+        Transform _stars, _splat;
+
+        void BuildDaze()
+        {
+            var src = UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null
+                ? UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline.defaultMaterial : null;
+            Material M(Color c, float smooth)
+            {
+                var m = src != null ? new Material(src) : new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                m.SetColor("_BaseColor", c); m.SetFloat("_Smoothness", smooth); return m;
+            }
+            GameObject Blob(Transform parent, PrimitiveType type, Vector3 pos, Vector3 scale, Material mat)
+            {
+                var g = GameObject.CreatePrimitive(type);
+                Destroy(g.GetComponent<Collider>());
+                g.transform.SetParent(parent, false);
+                g.transform.localPosition = pos; g.transform.localScale = scale;
+                var r = g.GetComponent<Renderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                return g;
+            }
+            _stars = new GameObject("DazeStars").transform;
+            _stars.SetParent(transform, false);
+            _stars.localPosition = new Vector3(0, 2.05f, 0);
+            var star = M(Palette.TintYellow, 0.6f);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * Mathf.PI * 0.5f;
+                Blob(_stars, PrimitiveType.Cube, new Vector3(Mathf.Cos(a) * 0.38f, Mathf.Sin(a * 2f) * 0.05f, Mathf.Sin(a) * 0.38f), Vector3.one * 0.09f, star)
+                    .transform.localRotation = Quaternion.Euler(45, 45, 0);
+            }
+            _stars.gameObject.SetActive(false);
+
+            // a face full of fresh paint, with drips (rides on the body so it leans with him)
+            _splat = new GameObject("PaintSplat").transform;
+            _splat.SetParent(body, false);
+            var paint = M(Palette.FreshPaint, 0.85f);
+            Blob(_splat, PrimitiveType.Sphere, new Vector3(0, 1.53f, 0.27f), new Vector3(0.46f, 0.3f, 0.07f), paint);
+            Blob(_splat, PrimitiveType.Sphere, new Vector3(0.12f, 1.62f, 0.25f), new Vector3(0.2f, 0.16f, 0.06f), paint);
+            Blob(_splat, PrimitiveType.Cube, new Vector3(-0.08f, 1.36f, 0.27f), new Vector3(0.04f, 0.2f, 0.03f), paint);
+            Blob(_splat, PrimitiveType.Cube, new Vector3(0.1f, 1.33f, 0.26f), new Vector3(0.035f, 0.26f, 0.03f), paint);
+            Blob(_splat, PrimitiveType.Cube, new Vector3(0.02f, 1.18f, 0.22f), new Vector3(0.03f, 0.2f, 0.03f), paint);
+            _splat.gameObject.SetActive(false);
+        }
+
         void UpdateLook()
         {
+            if (_stars != null)
+            {
+                var dm = CurrentMode;
+                bool stars = Present && dm == Mode.Stunned, splat = Present && dm == Mode.Blinded;
+                if (_stars.gameObject.activeSelf != stars) _stars.gameObject.SetActive(stars);
+                if (_splat.gameObject.activeSelf != splat) _splat.gameObject.SetActive(splat);
+                if (stars) _stars.localRotation = Quaternion.Euler(0, Time.time * 260f, Mathf.Sin(Time.time * 3f) * 10f);
+            }
             if (_cone == null) return;
             var m = CurrentMode;
-            bool show = Present && m != Mode.Final && m != Mode.Away;
+            bool show = Watching;
             if (_cone.gameObject.activeSelf != show) _cone.gameObject.SetActive(show);
             float s = _suspicion.Value;
             var c = m == Mode.Scold ? Palette.Accent : Color.Lerp(Palette.TintYellow, Palette.Accent, Mathf.Clamp01(s * 1.3f));
@@ -673,6 +851,7 @@ namespace BodgeSquad.Job
                     Mode.Suspicious => s > 0.6f ? "!" : "?",
                     Mode.Investigate => "?",
                     Mode.Radio => "#!",
+                    Mode.Blinded => "@#$%!",
                     _ => "",
                 };
                 _icon.text = txt;

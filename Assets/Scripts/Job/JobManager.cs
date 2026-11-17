@@ -49,6 +49,7 @@ namespace BodgeSquad.Job
             Instance = this;
             // paint/tape marks live on the same network object (added before it spawns)
             if (!TryGetComponent<SurfaceMarks>(out _)) gameObject.AddComponent<SurfaceMarks>();
+            if (!TryGetComponent<Spills>(out _)) gameObject.AddComponent<Spills>();
             NewLuck();
         }
 
@@ -164,6 +165,7 @@ namespace BodgeSquad.Job
             _phase.Value = (int)JobPhase.Renovation;
             ClearMarkersRpc();
             SurfaceMarks.Instance?.ClearAll();
+            Spills.Instance?.ClearAll();
             Say("New job! Same house, same budget, fresh luck.");
         }
 

@@ -56,7 +56,9 @@ namespace BodgeSquad.Interaction
             dropDistance = Mathf.Max(dropDistance, 3f);
             _input = GetComponent<BodgerInput>();
             _bodger = GetComponent<NetworkBodger>();
+            _fpc = GetComponent<FirstPersonController>();
         }
+        FirstPersonController _fpc;
 
         // Own body and invisible blockers (the ceiling lid sits on Ignore Raycast) never get in the way
         public void SetIgnoredLayer(int layer) => _rayMask = ~((1 << layer) | (1 << 2));
@@ -68,6 +70,7 @@ namespace BodgeSquad.Interaction
         {
             if (!IsOwner || _input == null || !_input.Ready || !_input.enabled) return;
             if (_held != null && (_held == null || !_held.IsSpawned)) _held = null; // consumed or despawned
+            if (_fpc != null && _fpc.IsDown) { Working = false; LookCarryable = null; LookDefect = null; LookPressable = null; if (Time.time > _messageUntil) Message = null; return; }
             ScanLook();
             if (Time.time > _messageUntil) Message = null;
 
@@ -295,6 +298,13 @@ namespace BodgeSquad.Interaction
         public void TestGrab(Carryable c) => TryGrab(c);
         public Transform Eye => eye;
         public void TestDrop() => Release(Vector3.zero);
+        public void TestThrow() { if (_held != null) Release(eye.forward * throwSpeed / _held.CarryWeight); }
+        // Falling over: whatever you hold flies out of your hands
+        public void Fumble()
+        {
+            if (_held == null) return;
+            Release((Vector3.up * 2.5f + transform.forward * 1.5f + Random.insideUnitSphere) / _held.CarryWeight);
+        }
         // Sweep the held tool over a whole defect, as a player would, for `seconds` of use
         public void TestSweep(Defect d, float seconds)
         {
@@ -356,7 +366,7 @@ namespace BodgeSquad.Interaction
             c.Holder = null;
             c.Body.isKinematic = false;
             c.Body.useGravity = true;
-            if (velocity != Vector3.zero) c.Body.linearVelocity = velocity;
+            if (velocity != Vector3.zero) { c.Body.linearVelocity = velocity; c.ThrownAt = Time.time; }
         }
 
         void Release(Vector3 velocity)
@@ -389,7 +399,7 @@ namespace BodgeSquad.Interaction
         public static bool CanHide(Defect d) =>
             d.State != RepairState.Fixed && (JobManager.Instance == null || JobManager.Instance.Phase == JobPhase.Renovation);
 
-        void Flash(string msg)
+        public void Flash(string msg)
         {
             if (string.IsNullOrEmpty(msg)) return;
             Message = msg;
