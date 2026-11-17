@@ -570,6 +570,7 @@ namespace BodgeSquad.Job
         Mesh _coneMesh;
         readonly List<Vector3> _cv = new();
         readonly List<int> _ct = new();
+        readonly List<Vector3> _cn = new();
 
         void BuildCone()
         {
@@ -621,7 +622,6 @@ namespace BodgeSquad.Job
                 int k = _cv.Count;
                 _cv.Add(dir * 0.3f - n); _cv.Add(dir * 0.3f + n); _cv.Add(dir * R - n); _cv.Add(dir * R + n);
                 _ct.Add(k); _ct.Add(k + 2); _ct.Add(k + 3); _ct.Add(k); _ct.Add(k + 3); _ct.Add(k + 1);
-                _ct.Add(k); _ct.Add(k + 3); _ct.Add(k + 2); _ct.Add(k); _ct.Add(k + 1); _ct.Add(k + 3); // both sides
             }
             Side(-1f); Side(1f);
             Arc(R - edge, R);
@@ -629,7 +629,10 @@ namespace BodgeSquad.Job
             _coneMesh.Clear();
             _coneMesh.SetVertices(_cv);
             _coneMesh.SetTriangles(_ct, 0);
-            _coneMesh.RecalculateNormals();
+            // flat on the floor: every normal straight up (recalculated ones can come out zero → NaN → bloom blows the screen white)
+            _cn.Clear();
+            for (int i = 0; i < _cv.Count; i++) _cn.Add(Vector3.up);
+            _coneMesh.SetNormals(_cn);
             _coneMesh.RecalculateBounds();
         }
 
