@@ -91,7 +91,7 @@ namespace BodgeSquad.Job
         {
             var go = new GameObject("Puddle");
             go.transform.SetParent(_root, false);
-            go.transform.position = p.Pos + Vector3.up * (0.006f + index * 0.0006f);
+            go.transform.position = p.Pos + Vector3.up * (0.0085f + index * 0.00012f); // above the rug (0.004-0.006), under paint marks (0.012+)
             var mesh = new Mesh { name = "PuddleBlob" };
             var rnd = new System.Random(p.Seed);
             const int seg = 28;

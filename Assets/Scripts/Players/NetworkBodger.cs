@@ -113,10 +113,10 @@ namespace BodgeSquad.Players
         {
             if (!IsOwner || _down.Value) return;
             _down.Value = true;
-            _downUntil = Time.time + 2.2f;
+            _downUntil = Time.time + 2.6f;
             GetComponent<CarryInteractor>().Fumble();
             GetComponent<CarryInteractor>().Flash(why);
-            GetComponent<FirstPersonController>().KnockDown(shove, 2.2f);
+            GetComponent<FirstPersonController>().KnockDown(shove, 2.6f);
             Debug.Log($"[Bodger] P{Index + 1} down: {why}");
         }
 
@@ -124,7 +124,7 @@ namespace BodgeSquad.Players
         {
             if (IsOwner && _down.Value && Time.time >= _downUntil) _down.Value = false;
             // a springy topple backwards, pivoting on the feet; and back up again
-            float target = _down.Value ? -88f : 0f;
+            float target = _down.Value ? -92f : 0f;
             float k = 160f, damp = 14f;
             _tipVel += ((target - _tip) * k - _tipVel * damp) * Time.deltaTime;
             _tip += _tipVel * Time.deltaTime;

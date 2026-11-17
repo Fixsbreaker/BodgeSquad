@@ -107,10 +107,22 @@ namespace BodgeSquad.Job
         }
 
         // Anyone: put a mark down (sent to the host, then drawn everywhere)
+        float _nextFacePaint;
         public void Place(KitType kit, RaycastHit hit, float size, float roll)
         {
             var m = new Mark { Size = size, Roll = roll, Kit = (byte)kit, Parent = World, Pos = hit.point, Normal = hit.normal };
             if (hit.rigidbody != null && hit.rigidbody.GetComponent<RepairKit>() != null) return; // not on tins and rolls
+            // never stuck on the inspector (he walks off and they'd hang in the air); paint in his face blinds him instead
+            var insp = hit.collider != null ? hit.collider.GetComponentInParent<Inspector>() : null;
+            if (insp != null)
+            {
+                if (kit == KitType.PaintTin && insp.transform.InverseTransformPoint(hit.point).y > 1.25f && Time.time >= _nextFacePaint && insp.IsSpawned)
+                {
+                    _nextFacePaint = Time.time + 1.2f;
+                    insp.HitRpc((int)KitType.PaintTin);
+                }
+                return;
+            }
             var no = hit.rigidbody != null ? hit.rigidbody.GetComponent<NetworkObject>() : null;
             if (no != null && no.IsSpawned)
             {
@@ -127,10 +139,6 @@ namespace BodgeSquad.Job
             var world = m.Pos;
             if (m.Parent != World && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(m.Parent, out var po)) world = po.transform.TransformPoint(m.Pos);
             Inspector.Instance?.ReportWork(p.Receive.SenderClientId, (KitType)m.Kit, world);
-            // painting the inspector's face: works about as well as you'd expect
-            var insp = Inspector.Instance;
-            if (insp != null && m.Parent != World && m.Parent == insp.NetworkObjectId && (KitType)m.Kit == KitType.PaintTin && m.Pos.y > 1.25f)
-                insp.ServerHit(p.Receive.SenderClientId, KitType.PaintTin);
             if (_marks.Count >= MaxMarks) _marks.RemoveAt(0);
             _marks.Add(m);
         }

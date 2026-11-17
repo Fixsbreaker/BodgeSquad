@@ -46,6 +46,7 @@ namespace BodgeSquad.Interaction
             if (!IsSpawned || !IsOwner || Holder != null) return;
             float speed = c.relativeVelocity.magnitude;
             bool flying = Flying; // only real throws hurt (not the inspector walking into a tin on the floor)
+            if (Debug.isDebugBuild && Time.time - ThrownAt < 3f) Debug.Log($"[Carry] {name} hit {c.collider.name} at {speed:0.0} m/s (flight {_flightSpeed:0.0}, flying {flying})");
             var point = c.contactCount > 0 ? c.GetContact(0).point : transform.position;
             TryGetComponent<RepairKit>(out var kit);
 
@@ -57,7 +58,7 @@ namespace BodgeSquad.Interaction
                     _nextHit = Time.time + 1f;
                     ThrownAt = -99f; // one hit per throw
                     insp.HitRpc(kit != null ? (int)kit.Type : -1);
-                    if (kit != null && kit.Type == BodgeSquad.Job.KitType.PaintTin) Burst(kit, point, 0.35f);
+                    if (kit != null && kit.Type == BodgeSquad.Job.KitType.PaintTin) Burst(kit, point, 0.55f);
                 }
                 return;
             }
@@ -76,8 +77,8 @@ namespace BodgeSquad.Interaction
 
             if (speed < 4.5f || Time.time < _nextNoise) return;
             _nextNoise = Time.time + 1.5f;
-            if (kit != null && kit.Type == BodgeSquad.Job.KitType.PaintTin && c.contactCount > 0 && c.GetContact(0).normal.y > 0.6f)
-                Burst(kit, point, Mathf.Lerp(0.55f, 0.9f, Mathf.InverseLerp(4.5f, 10f, speed)));
+            if (flying && kit != null && kit.Type == BodgeSquad.Job.KitType.PaintTin && c.contactCount > 0 && c.GetContact(0).normal.y > 0.6f) // thrown, not just put down
+                Burst(kit, point, Mathf.Lerp(0.75f, 1.1f, Mathf.InverseLerp(4.5f, 10f, speed)));
             var ins = BodgeSquad.Job.Inspector.Instance;
             if (ins != null && ins.IsSpawned) ins.NoiseRpc(point, Mathf.Clamp01(speed / 9f) * Mathf.Clamp(Body.mass, 0.8f, 3f));
         }
@@ -89,8 +90,15 @@ namespace BodgeSquad.Interaction
             kit.Spend(BodgeSquad.Job.RepairRules.Capacity(kit.Type) * 0.35f);
             var spills = BodgeSquad.Job.Spills.Instance;
             if (spills == null || !spills.IsSpawned) return;
-            var at = point; // the puddle lands on the floor under the impact
-            if (Physics.Raycast(point + Vector3.up * 0.3f, Vector3.down, out var floor, 3f, ~(1 << 2), QueryTriggerInteraction.Ignore)) at = floor.point;
+            // the puddle lands on whatever is under the impact: floor, rug (never on top of a person)
+            var at = point; at.y = 0f;
+            float best = float.MaxValue;
+            foreach (var h in Physics.RaycastAll(point + Vector3.up * 0.3f, Vector3.down, 4f, ~(1 << 2), QueryTriggerInteraction.Ignore))
+            {
+                if (h.collider.GetComponentInParent<BodgeSquad.Job.Inspector>() != null || h.collider.GetComponentInParent<BodgeSquad.Players.NetworkBodger>() != null) continue;
+                if (h.rigidbody != null && h.rigidbody.TryGetComponent<Carryable>(out _) && h.rigidbody.mass < 5f) continue; // not on a tin or a plank
+                if (h.distance < best) { best = h.distance; at = h.point; }
+            }
             spills.SpillRpc(at, radius);
         }
 

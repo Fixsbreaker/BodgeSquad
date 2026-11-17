@@ -17,6 +17,7 @@ namespace BodgeSquad.Net
             int sd = System.Array.IndexOf(args, "-bodgeShotsDir");
             if (sd >= 0 && sd + 1 < args.Length) _shots = args[sd + 1];
             if (System.Array.IndexOf(args, "-bodgeSmoke") >= 0) StartCoroutine(Run());
+            if (System.Array.IndexOf(args, "-bodgeSmoke") >= 0 && _shots != null) StartCoroutine(WatchInspector());
             int shot = System.Array.IndexOf(args, "-bodgeShot");
             if (shot >= 0 && shot + 1 < args.Length) StartCoroutine(Shot(args[shot + 1]));
         }
@@ -29,6 +30,53 @@ namespace BodgeSquad.Net
             yield return new WaitForSeconds(1f);
             Debug.Log($"[Smoke] Screenshot {file}");
             Application.Quit();
+        }
+
+        // Snap the inspector from the side whenever something happens to him (own camera: the player keeps playing)
+        IEnumerator WatchInspector()
+        {
+            var seen = new System.Collections.Generic.HashSet<Inspector.Mode>();
+            while (true)
+            {
+                var insp = Inspector.Instance;
+                if (insp != null && insp.Present && insp.CurrentMode is Inspector.Mode.Stunned or Inspector.Mode.Blinded or Inspector.Mode.Slipped && seen.Add(insp.CurrentMode))
+                {
+                    var mode = insp.CurrentMode;
+                    yield return new WaitForSeconds(mode == Inspector.Mode.Slipped ? 0.9f : 0.5f);
+                    var t = insp.transform;
+                    var toCentre = new Vector3(-t.position.x, 0, -t.position.z);
+                    toCentre = toCentre.sqrMagnitude > 0.01f ? toCentre.normalized : t.forward;
+                    var from = t.position + toCentre * 2.6f + Vector3.up * 1.8f; // from the middle of the room, never from inside a wall
+                    SideShot(from, t.position + Vector3.up * (mode == Inspector.Mode.Slipped ? 0.3f : 1.2f), $"{_shots}/inspector_{mode.ToString().ToLower()}.png");
+                }
+                if (Spills.Instance != null && Spills.Instance.Count > 0 && seen.Add(Inspector.Mode.Away))
+                {
+                    yield return new WaitForSeconds(0.5f);
+                    var p = GameObject.Find("Puddle");
+                    if (p != null) SideShot(p.transform.position + new Vector3(1.6f, 1.6f, -1.6f), p.transform.position, $"{_shots}/puddle.png");
+                }
+                yield return null;
+            }
+        }
+
+        static void SideShot(Vector3 from, Vector3 at, string file)
+        {
+            var go = new GameObject("SmokeShotCam");
+            var cam = go.AddComponent<Camera>();
+            go.transform.SetPositionAndRotation(from, Quaternion.LookRotation(at - from));
+            cam.fieldOfView = 55f;
+            var rt = new RenderTexture(960, 540, 24);
+            cam.targetTexture = rt;
+            cam.Render();
+            RenderTexture.active = rt;
+            var tex = new Texture2D(960, 540, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, 960, 540), 0, 0);
+            tex.Apply();
+            RenderTexture.active = null;
+            System.IO.File.WriteAllBytes(file, tex.EncodeToPNG());
+            cam.targetTexture = null;
+            Destroy(rt); Destroy(tex); Destroy(go);
+            Debug.Log($"[Smoke] Side shot {file}");
         }
 
         IEnumerator Run()
@@ -214,6 +262,15 @@ namespace BodgeSquad.Net
                         Debug.Log($"[Smoke] Paint tin at the inspector's head: blinded {blinded}, fines now {job.Fines}, puddles {puddles0} → {Spills.Instance.Count}");
                         yield return new WaitForSeconds(3.5f);
                         Debug.Log($"[Smoke] Inspector after blinding: {insp.CurrentMode}");
+                        // a puddle right where he's walking
+                        yield return new WaitForSeconds(1f);
+                        Spills.Instance.SpillRpc(insp.transform.position + insp.transform.forward * 0.3f, 0.9f);
+                        bool slipped = false; t0 = Time.time;
+                        while (Time.time - t0 < 4f) { slipped |= insp.CurrentMode == Inspector.Mode.Slipped; if (slipped) break; yield return null; }
+                        Debug.Log($"[Smoke] Puddle under the inspector: slipped {slipped}");
+                        yield return new WaitForSeconds(4f);
+                        Debug.Log($"[Smoke] Inspector after slipping: {insp.CurrentMode}, body tilt {insp.transform.Find("Body").localEulerAngles.x:0}");
+                        yield return new WaitForSeconds(14f); // give the client time for its plank throw before the doorbell
                     }
                 }
                 else
@@ -222,7 +279,9 @@ namespace BodgeSquad.Net
                     yield return new WaitForSeconds(0.5f);
                     Debug.Log($"[Smoke] Noise: inspector mode now {insp.CurrentMode}");
                     // a puddle in the middle of the room, and a run straight through it
-                    Spills.Instance.SpillRpc(new Vector3(0.5f, 0f, -0.5f), 0.8f);
+                    var spillAt = new Vector3(0.5f, 0f, -0.5f);
+                    if (Physics.Raycast(spillAt + Vector3.up * 2f, Vector3.down, out var fl, 3f, ~((1 << 2) | (1 << NetworkBodger.LocalBodyLayer)))) spillAt = fl.point;
+                    Spills.Instance.SpillRpc(spillAt, 0.8f);
                     yield return new WaitForSeconds(0.6f);
                     fpcI.Teleport(new Vector3(-0.3f, 0f, -0.5f), Quaternion.LookRotation(Vector3.right));
                     yield return null;
@@ -233,6 +292,35 @@ namespace BodgeSquad.Net
                     Debug.Log($"[Smoke] Ran into a paint puddle ({Spills.Instance.Count} puddles): fell over {down}");
                     yield return new WaitForSeconds(2.6f);
                     Debug.Log($"[Smoke] Back on feet: {!me.IsDown && !fpcI.IsDown}");
+                    // bean him with the plank from behind
+                    var plankC = GameObject.Find("Plank")?.GetComponent<Carryable>();
+                    var ci2 = me.GetComponent<CarryInteractor>();
+                    if (plankC != null)
+                    {
+                        var pp = plankC.transform.position; fpcI.Teleport(new Vector3(pp.x + 0.6f, 0f, pp.z), Quaternion.identity);
+                        yield return new WaitForSeconds(0.3f);
+                        ci2.TestGrab(plankC);
+                        yield return new WaitForSeconds(0.8f);
+                        bool stunned = false;
+                        for (int tries = 0; tries < 4 && !stunned; tries++)
+                        {
+                            var behind = insp.transform.position - insp.transform.forward * 1.8f; behind.y = 0f;
+                            fpcI.Teleport(behind, Quaternion.LookRotation(insp.transform.position - behind));
+                            fpcI.enabled = false;
+                            yield return null;
+                            ci2.Eye.LookAt(insp.transform.position + Vector3.up * 1.3f);
+                            if (ci2.Held != null) ci2.Held.Warp(ci2.Eye.position + ci2.Eye.forward * 0.8f, ci2.Eye.rotation); // it was left behind by the teleport
+                            yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
+                            Debug.Log($"[Smoke] Throwing the plank, inspector mode {insp.CurrentMode}");
+                            ci2.TestThrow();
+                            t0 = Time.time;
+                            while (Time.time - t0 < 1.5f) { stunned |= insp.CurrentMode == Inspector.Mode.Stunned; if (stunned) break; yield return null; }
+                            fpcI.enabled = true;
+                            if (!stunned) { yield return new WaitForSeconds(3f); if (ci2.Held == null) { ci2.TestGrab(plankC); yield return new WaitForSeconds(0.8f); } }
+                        }
+                        Debug.Log($"[Smoke] Plank to the back of the inspector's head: stunned {stunned}");
+                        yield return new WaitForSeconds(4.5f);
+                    }
                     yield return new WaitForSeconds(6f);
                 }
             }

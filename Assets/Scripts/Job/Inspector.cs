@@ -22,7 +22,7 @@ namespace BodgeSquad.Job
     // mood, suspicion and the radio to every screen.
     public class Inspector : NetworkBehaviour
     {
-        public enum Mode { Away, Patrol, LookAround, Investigate, Radio, Suspicious, Scold, Leaving, Final, Stunned, Blinded }
+        public enum Mode { Away, Patrol, LookAround, Investigate, Radio, Suspicious, Scold, Leaving, Final, Stunned, Blinded, Slipped }
 
         [SerializeField] Transform body;          // leans/taps
         [SerializeField] Transform entrance;      // where he appears
@@ -51,7 +51,7 @@ namespace BodgeSquad.Job
         public bool Present => _visible.Value;
         public bool RadioOn => _radioOn.Value;
         public float NextVisitAt => _nextVisit.Value;
-        public bool Watching => Present && CurrentMode is not (Mode.Final or Mode.Away or Mode.Stunned or Mode.Blinded);
+        public bool Watching => Present && CurrentMode is not (Mode.Final or Mode.Away or Mode.Stunned or Mode.Blinded or Mode.Slipped);
 
         void Awake()
         {
@@ -307,7 +307,7 @@ namespace BodgeSquad.Job
         public void NoiseRpc(Vector3 point, float loudness)
         {
             var m = CurrentMode;
-            if (!Present || m is Mode.Final or Mode.Leaving or Mode.Scold or Mode.Radio or Mode.Stunned or Mode.Blinded || Time.time < _noiseCooldown) return;
+            if (!Present || m is Mode.Final or Mode.Leaving or Mode.Scold or Mode.Radio or Mode.Stunned or Mode.Blinded or Mode.Slipped || Time.time < _noiseCooldown) return;
             if (loudness < 0.3f) return;
             _noiseCooldown = Time.time + 3f;
             _goal = ClampToRoom(point);
@@ -351,6 +351,18 @@ namespace BodgeSquad.Job
 
             Vision(job);
             mode = CurrentMode;
+            // walking about in wet paint has consequences for him too
+            if (mode is Mode.Patrol or Mode.Investigate or Mode.Radio or Mode.Blinded or Mode.Leaving or Mode.LookAround
+                && Time.time >= _slipImmuneUntil && Spills.Instance != null && Spills.Instance.IsSlippery(transform.position))
+            {
+                _slipImmuneUntil = Time.time + 9f;
+                _slideVel = transform.forward * 2.2f;
+                SetMode(Mode.Slipped, 3.4f);
+                YellRpc(3);
+                job.Say("WHOA! The inspector slipped in the paint and went flat on his back!");
+                Debug.Log("[Inspector] Slipped in a puddle");
+                mode = Mode.Slipped;
+            }
             switch (mode)
             {
                 case Mode.Patrol:
@@ -390,6 +402,7 @@ namespace BodgeSquad.Job
                         _radioTrips++;
                         string[] lines = { "\"Who put THIS on?\"", "\"Again? Really?\"", "\"Very funny. VERY funny.\"", "\"I'm taking the batteries out next time.\"" };
                         job.Say($"Inspector clicks the radio off. {lines[Mathf.Min(_radioTrips - 1, lines.Length - 1)]}");
+                        YellRpc(2);
                         SetMode(Mode.LookAround, 2f);
                     }
                     break;
@@ -442,6 +455,28 @@ namespace BodgeSquad.Job
                         PickPatrolGoal(job);
                     }
                     break;
+
+                case Mode.Slipped:
+                {
+                    // feet out, flat on his back, slides a bit, lies there, then clambers up
+                    float left = _modeUntil - Time.time, since = 3.4f - left;
+                    transform.position += _slideVel * Time.deltaTime;
+                    _slideVel = Vector3.MoveTowards(_slideVel, Vector3.zero, 2.2f * Time.deltaTime);
+                    var p = ClampToRoom(transform.position); p.y = transform.position.y; transform.position = p;
+                    float tip = since < 0.25f ? Mathf.Lerp(0f, -95f, since / 0.25f)
+                              : left > 0.6f ? -92f + Mathf.Exp(-(since - 0.25f) * 8f) * Mathf.Sin((since - 0.25f) * 25f) * 8f
+                              : Mathf.Lerp(-92f, 0f, 1f - left / 0.6f);
+                    body.localRotation = Quaternion.Euler(tip, 0, left > 0.6f ? Mathf.Sin(since * 2f) * 4f : 0f);
+                    if (left <= 0f)
+                    {
+                        body.localRotation = Quaternion.identity;
+                        string[] up = { "Inspector climbs up, dripping. \"Not. One. Word.\"", "Inspector gets up and straightens his hat. \"I meant to do that.\"" };
+                        job.Say(up[UnityEngine.Random.Range(0, up.Length)]);
+                        YellRpc(2);
+                        PickPatrolGoal(job);
+                    }
+                    break;
+                }
 
                 case Mode.Leaving:
                     if (StepTowards(entrance.position, walkSpeed * 1.2f))
@@ -542,7 +577,7 @@ namespace BodgeSquad.Job
             float dt = 0.1f;
             _nextVision = Time.time + dt;
             var m = CurrentMode;
-            if (m is Mode.Scold or Mode.Away or Mode.Final or Mode.Stunned or Mode.Blinded) return;
+            if (m is Mode.Scold or Mode.Away or Mode.Final or Mode.Stunned or Mode.Blinded or Mode.Slipped) return;
 
             NetworkBodger caughtBy = null;
             Work caughtWork = default;
@@ -601,7 +636,8 @@ namespace BodgeSquad.Job
         }
 
         // ---------------------------------------------------------------- things thrown at him
-        float _stunImmuneUntil, _stumbleNext;
+        float _stunImmuneUntil, _stumbleNext, _slipImmuneUntil;
+        Vector3 _slideVel;
 
         // The thrower's machine reports the hit (it runs the physics of what it threw)
         [Rpc(SendTo.Server)]
@@ -615,7 +651,7 @@ namespace BodgeSquad.Job
             if (job == null || job.Phase != JobPhase.Renovation || !Present || m is Mode.Final or Mode.Away) return;
             bool paint = kit == KitType.PaintTin;
             YellRpc(paint ? 1 : 0);
-            if (m is Mode.Stunned or Mode.Blinded || Time.time < _stunImmuneUntil)
+            if (m is Mode.Stunned or Mode.Blinded or Mode.Slipped || Time.time < _stunImmuneUntil)
             {
                 job.Say("Inspector: \"OW! Will you STOP that!\"");
                 return;
@@ -627,6 +663,7 @@ namespace BodgeSquad.Job
             float secs = paint ? 3f : 4f;
             SetMode(paint ? Mode.Blinded : Mode.Stunned, secs);
             _stunImmuneUntil = Time.time + secs + 5f;
+            _slipImmuneUntil = Mathf.Max(_slipImmuneUntil, Time.time + 1.5f); // the splash lands under him: give him a moment before he skids in it
             _suspicion.Value = Mathf.Max(0f, _suspicion.Value - 0.5f);
             string who = thrower != null ? $"P{thrower.Index + 1}" : "Someone";
             string fine = saw ? $" He saw {who} do it: −${RepairRules.AssaultFine}." : $" He never saw who did it. Go go go!";
@@ -643,48 +680,97 @@ namespace BodgeSquad.Job
         void YellRpc(int kind)
         {
             if (_voice == null) return;
-            _grunts ??= new[] { Grunt(0), Grunt(1), Grunt(2) };
+            _grunts ??= new[] { Grunt(0), Grunt(1), Grunt(2), Grunt(3) };
             _voice.pitch = UnityEngine.Random.Range(0.92f, 1.08f);
             _voice.PlayOneShot(_grunts[Mathf.Clamp(kind, 0, _grunts.Length - 1)]);
         }
 
-        // An angry little man, synthesised: a buzzy voice through two "vowel" resonances, with a growl.
-        // 0 = "OOF!" (hit), 1 = "AAGH!" (paint), 2 = "HMPH!" (cross)
+        // Cartoon sound effects, made on the spot (no audio files):
+        // 0 = BONK + boing + tweeting birds (hit), 1 = SPLAT + spluttering (paint),
+        // 2 = angry gibberish grumble (caught you / radio / coming round), 3 = "whoa-oa" + thud (slipped)
         static AudioClip Grunt(int kind)
         {
             const int rate = 22050;
-            float len = kind switch { 0 => 0.42f, 1 => 0.8f, _ => 0.36f };
+            float len = kind switch { 0 => 1.3f, 1 => 1.0f, 2 => 0.9f, _ => 1.0f };
             int n = (int)(len * rate);
-            var data = new float[n];
-            float f1 = kind == 0 ? 520f : kind == 1 ? 760f : 430f;   // first formant: "oo" / "ah" / "uh"
-            float f2 = kind == 0 ? 900f : kind == 1 ? 1250f : 1050f;
-            float b1x = 0, b1y = 0, b2x = 0, b2y = 0, phase = 0;
-            var rnd = new System.Random(11 + kind);
-            float Res(float x, float f, ref float y1, ref float y2)
+            var d = new float[n];
+            var rnd = new System.Random(7 + kind * 13);
+            float Noise() => (float)rnd.NextDouble() * 2f - 1f;
+
+            void Tone(float start, float dur, System.Func<float, float> freq, float vol, int wave = 0, float attack = 0.005f)
             {
-                float r = 0.985f, w = 2f * Mathf.PI * f / rate;
-                float y = (1 - r) * x + 2 * r * Mathf.Cos(w) * y1 - r * r * y2;
-                y2 = y1; y1 = y; return y;
-            }
-            for (int i = 0; i < n; i++)
-            {
-                float t = i / (float)rate, u = t / len;
-                float f0 = kind switch
+                float ph = 0f;
+                int i0 = (int)(start * rate), i1 = Mathf.Min(n, (int)((start + dur) * rate));
+                for (int i = i0; i < i1; i++)
                 {
-                    0 => Mathf.Lerp(230f, 120f, u),                       // oof: falls
-                    1 => 170f + 120f * Mathf.Sin(u * Mathf.PI) + 20f * Mathf.Sin(t * 40f), // aagh: rises, wobbles
-                    _ => Mathf.Lerp(150f, 110f, u),                       // hmph
-                };
-                f0 *= 1f + 0.06f * Mathf.Sin(t * 2f * Mathf.PI * 28f);   // growl
-                phase += f0 / rate;
-                float src = (Mathf.Repeat(phase, 1f) * 2f - 1f) + ((float)rnd.NextDouble() - 0.5f) * 0.35f;
-                float v = Res(src, f1, ref b1x, ref b1y) * 1.0f + Res(src, f2, ref b2x, ref b2y) * 0.6f;
-                float env = Mathf.Clamp01(t / 0.025f) * Mathf.Clamp01((len - t) / 0.12f);
-                if (kind == 2 && t < 0.06f) v = ((float)rnd.NextDouble() - 0.5f) * 0.6f; // the breathy "h"
-                data[i] = Mathf.Clamp(v * 9f * env, -1f, 1f);
+                    float u = (i - i0) / (float)rate;
+                    ph += freq(u / dur) / rate;
+                    float w = wave switch
+                    {
+                        1 => Mathf.Repeat(ph, 1f) < 0.5f ? 0.6f : -0.6f,                       // square-ish (voice)
+                        2 => 1f - 4f * Mathf.Abs(Mathf.Repeat(ph + 0.25f, 1f) - 0.5f),        // triangle
+                        _ => Mathf.Sin(ph * 2f * Mathf.PI),
+                    };
+                    float env = Mathf.Clamp01(u / attack) * Mathf.Clamp01((dur - u) / (dur * 0.35f));
+                    d[i] += w * env * vol;
+                }
             }
-            var clip = AudioClip.Create($"Grunt{kind}", n, 1, rate, false);
-            clip.SetData(data, 0);
+            void Thud(float start, float dur, float vol, float tone)
+            {
+                float lp = 0f;
+                int i0 = (int)(start * rate), i1 = Mathf.Min(n, (int)((start + dur) * rate));
+                for (int i = i0; i < i1; i++)
+                {
+                    float u = (i - i0) / (float)rate;
+                    lp += (Noise() - lp) * tone;               // low-passed noise: softer = lower tone
+                    d[i] += lp * Mathf.Exp(-u * 18f / dur) * vol;
+                }
+            }
+            void Gibber(float start, int syllables, float baseHz, float vol)
+            {
+                float t = start;
+                for (int k = 0; k < syllables; k++)
+                {
+                    float dur = 0.06f + (float)rnd.NextDouble() * 0.06f;
+                    float f0 = baseHz * (0.8f + (float)rnd.NextDouble() * 0.6f), f1 = f0 * (0.85f + (float)rnd.NextDouble() * 0.3f);
+                    Tone(t, dur, u => Mathf.Lerp(f0, f1, u), vol, 1, 0.01f);
+                    t += dur + 0.015f + (float)rnd.NextDouble() * 0.03f;
+                }
+            }
+
+            switch (kind)
+            {
+                case 0: // BONK on the head, a sproingy boing, then little birds
+                    Tone(0f, 0.12f, u => Mathf.Lerp(900f, 420f, u), 0.6f, 2, 0.001f);
+                    Thud(0f, 0.08f, 0.9f, 0.5f);
+                    Tone(0.08f, 0.55f, u => (260f + 220f * u) * (1f + 0.12f * Mathf.Sin(u * 60f)), 0.35f);
+                    for (int b = 0; b < 4; b++)
+                        Tone(0.65f + b * 0.15f, 0.09f, u => 2600f + 900f * Mathf.Sin(u * Mathf.PI), 0.35f);
+                    break;
+                case 1: // wet SPLAT, then a disgusted splutter
+                    Thud(0f, 0.25f, 1.1f, 0.35f);
+                    Thud(0.02f, 0.12f, 0.6f, 0.9f);
+                    Tone(0.3f, 0.18f, u => Mathf.Lerp(320f, 220f, u), 0.25f, 1);
+                    Thud(0.3f, 0.18f, 0.25f, 0.8f);                     // "pfft"
+                    Gibber(0.55f, 4, 260f, 0.4f);
+                    break;
+                case 2: // angry mumble, rising to a final "HMPH"
+                    Gibber(0f, 6, 210f, 0.24f);
+                    Tone(0.62f, 0.22f, u => Mathf.Lerp(300f, 170f, u), 0.3f, 1);
+                    break;
+                default: // "whoa-oa-oa" wobbling up, then a thud on the floor
+                    Tone(0f, 0.55f, u => (230f + 160f * u) * (1f + 0.15f * Mathf.Sin(u * 45f)), 0.28f, 1);
+                    Tone(0.5f, 0.3f, u => Mathf.Lerp(600f, 150f, u), 0.25f, 2);   // slide whistle down
+                    Thud(0.78f, 0.2f, 1.2f, 0.25f);
+                    break;
+            }
+            // soften the edges a touch and normalise
+            float peak = 0.001f, lpo = 0f;
+            for (int i = 0; i < n; i++) { lpo += (d[i] - lpo) * 0.6f; d[i] = lpo; peak = Mathf.Max(peak, Mathf.Abs(lpo)); }
+            float g = 0.8f / peak;
+            for (int i = 0; i < n; i++) d[i] *= g;
+            var clip = AudioClip.Create($"Sfx{kind}", n, 1, rate, false);
+            clip.SetData(d, 0);
             return clip;
         }
 
@@ -773,7 +859,9 @@ namespace BodgeSquad.Job
             _icon.fontStyle = FontStyles.Bold;
             _icon.outlineWidth = 0.25f;
             _icon.outlineColor = Palette.UiInk;
-            _icon.rectTransform.sizeDelta = new Vector2(2f, 1f);
+            _icon.rectTransform.sizeDelta = new Vector2(5f, 1.2f);
+            _icon.textWrappingMode = TextWrappingModes.NoWrap;
+            _icon.overflowMode = TextOverflowModes.Overflow;
             _icon.text = "";
         }
 
@@ -852,6 +940,7 @@ namespace BodgeSquad.Job
                     Mode.Investigate => "?",
                     Mode.Radio => "#!",
                     Mode.Blinded => "@#$%!",
+                    Mode.Slipped => "!?",
                     _ => "",
                 };
                 _icon.text = txt;

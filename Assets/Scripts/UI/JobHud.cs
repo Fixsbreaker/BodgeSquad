@@ -62,7 +62,7 @@ namespace BodgeSquad.UI
                 $"<color=#{y}>3.</color> <color=#{r}><b>The inspector drops in while you work.</b></color> If he <b>sees</b> you painting, papering or taping (the striped cone on the floor), " +
                 $"his suspicion fills and you're <b>caught red-handed</b>: −${RepairRules.RedHandedFine} and that defect is flagged for sure. Proper fixes are fine in front of him.\n" +
                 $"<color=#{y}>4.</color> <color=#{g}><b>Distract him:</b></color> throw something so it crashes (he goes to look), switch on the <b>radio</b>, or <b>throw it AT him</b>: stunned 4s, a paint tin blinds him 3s (−${RepairRules.AssaultFine} if he sees who threw it).\n" +
-                $"     Careful: paint tins burst into <b>slippery puddles</b>. Run through one and you're on your back.\n" +
+                $"     Careful: paint tins burst into <b>slippery puddles</b>. Run through one and you're on your back, and so is the inspector if he walks into it!\n" +
                 $"<color=#{y}>5.</color> Free cover: push furniture in front of a defect, or hang a picture with <b>[E]</b>.\n\n" +
                 $"<size=85%>Move <b>WASD</b> · Look <b>mouse</b> · Run <b>Shift</b> · Jump <b>Space</b> · Grab/Drop/Use <b>E</b> · Work <b>LMB</b> · Throw <b>RMB</b> · Help <b>Tab</b>     Gamepad: <b>Y</b> grab · <b>X</b> work · <b>LB</b> throw · <b>Select</b> help</size>";
             _help.SetActive(false);
@@ -147,6 +147,7 @@ namespace BodgeSquad.UI
                 Inspector.Mode.Leaving => $"INSPECTOR: <color=#{g}>leaving for a bit</color>",
                 Inspector.Mode.Stunned => $"INSPECTOR: <color=#{g}><b>SEEING STARS</b></color>",
                 Inspector.Mode.Blinded => $"INSPECTOR: <color=#{g}><b>BLINDED BY PAINT</b></color>",
+                Inspector.Mode.Slipped => $"INSPECTOR: <color=#{g}><b>FLAT ON HIS BACK</b></color>",
                 _ => "INSPECTOR",
             };
             float s = insp.Suspicion;
