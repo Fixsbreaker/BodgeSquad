@@ -219,6 +219,8 @@ namespace BodgeSquad.Net
             {
                 if (args[i] == "-bodgeHostLan") HostLan();
                 if (args[i] == "-bodgeJoinLan" && i + 1 < args.Length) JoinLan(args[i + 1]);
+                if (args[i] == "-bodgeHostOnline") HostOnline();
+                if (args[i] == "-bodgeJoinOnline" && i + 1 < args.Length) JoinOnline(args[i + 1]);
                 if (args[i] == "-bodgeQuitAfter" && i + 1 < args.Length && float.TryParse(args[i + 1], out var t))
                     Invoke(nameof(QuitNow), t);
             }
