@@ -57,11 +57,24 @@ namespace BodgeSquad.Job
 
         public override void OnNetworkSpawn()
         {
+            if (IsServer) NetworkManager.OnClientDisconnectCallback += FreeItemsOf;
             _phase.OnValueChanged += (_, now) =>
             {
                 Debug.Log($"[Job] Phase → {(JobPhase)now}");
                 PhaseChanged?.Invoke((JobPhase)now);
             };
+        }
+
+        // Host: whatever a player was carrying when they left can be picked up again
+        void FreeItemsOf(ulong clientId)
+        {
+            foreach (var c in FindObjectsByType<Carryable>())
+                if (c.IsSpawned && c.HolderClient.Value == clientId) c.HolderClient.Value = Carryable.NoHolder;
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            if (NetworkManager != null) NetworkManager.OnClientDisconnectCallback -= FreeItemsOf;
         }
 
         public override void OnDestroy()

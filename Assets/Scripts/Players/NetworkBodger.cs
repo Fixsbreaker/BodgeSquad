@@ -99,6 +99,7 @@ namespace BodgeSquad.Players
         public void GoToSpawn()
         {
             _placed = true;
+            if (IsOwner && _down.Value) { _down.Value = false; _downUntil = 0f; }
             var root = GameObject.Find("SpawnPoints");
             if (root == null || root.transform.childCount == 0) return;
             var sp = root.transform.GetChild(Index % root.transform.childCount);

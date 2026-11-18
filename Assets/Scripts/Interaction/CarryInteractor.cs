@@ -303,7 +303,7 @@ namespace BodgeSquad.Interaction
         public void Fumble()
         {
             if (_held == null) return;
-            Release((Vector3.up * 2.5f + transform.forward * 1.5f + Random.insideUnitSphere) / _held.CarryWeight);
+            Release((Vector3.up * 2.5f + transform.forward * 1.5f + Random.insideUnitSphere) / _held.CarryWeight, thrown: false); // an accident: no stuns, no assault fine
         }
         // Sweep the held tool over a whole defect, as a player would, for `seconds` of use
         public void TestSweep(Defect d, float seconds)
@@ -356,7 +356,7 @@ namespace BodgeSquad.Interaction
         }
 
         // ------------------------------------------------------------ release
-        void DropLocal(Vector3 velocity)
+        void DropLocal(Vector3 velocity, bool thrown = true)
         {
             var c = _held;
             if (c != null && c.TryGetComponent<RepairKit>(out var k)) { _lastKitType = (int)k.Type; FlushCells(force: true); }
@@ -366,13 +366,13 @@ namespace BodgeSquad.Interaction
             c.Holder = null;
             c.Body.isKinematic = false;
             c.Body.useGravity = true;
-            if (velocity != Vector3.zero) { c.Body.linearVelocity = velocity; c.ThrownAt = Time.time; }
+            if (velocity != Vector3.zero) { c.Body.linearVelocity = velocity; if (thrown) c.ThrownAt = Time.time; }
         }
 
-        void Release(Vector3 velocity)
+        void Release(Vector3 velocity, bool thrown = true)
         {
             var c = _held;
-            DropLocal(velocity);
+            DropLocal(velocity, thrown);
             if (c == null) return;
             if (IsSpawned && c.IsSpawned) ReleaseRpc(new NetworkObjectReference(c.NetworkObject));
             Debug.Log($"[Carry] {name} {(velocity == Vector3.zero ? "dropped" : "threw")} {c.name}");

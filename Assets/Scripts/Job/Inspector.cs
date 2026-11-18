@@ -68,6 +68,7 @@ namespace BodgeSquad.Job
 
         public override void OnNetworkSpawn()
         {
+            IgnoreWork = false; // a static: never carry the trailer's setting into a real game
             _visible.OnValueChanged += (_, v) => ShowBody(v);
             ShowBody(_visible.Value);
             BuildCone();
@@ -134,6 +135,7 @@ namespace BodgeSquad.Job
             _visits = 0;
             _radioTrips = 0;
             _warned = false;
+            IgnoreWork = false;
             _work.Clear();
             _nextVisit.Value = Array.IndexOf(Environment.GetCommandLineArgs(), "-bodgeSmoke") >= 0 ? 4f : RepairRules.FirstVisitAt;
         }
@@ -298,8 +300,39 @@ namespace BodgeSquad.Job
         // Host: someone just used a tool here (every stroke reports in)
         public void ReportWork(ulong clientId, KitType kit, Vector3 point)
         {
-            if (!IsServer) return;
+            if (!IsServer || IgnoreWork) return;
             _work[clientId] = new Work { Time = Time.time, Kit = kit, Point = point };
+        }
+
+        // ---- scripted hooks (the trailer director stages scenes with these; normal play never calls them)
+        public static bool IgnoreWork;                     // brush strokes don't count as bodging in front of him
+        public static event Action<int> Yelled;           // every sound he makes (kind), for the trailer soundtrack
+        public void ScriptHoldOutside() { if (IsServer) _nextVisit.Value = 99999f; }
+        public void ScriptArriveNow()
+        {
+            var job = JobManager.Instance;
+            if (!IsServer || job == null) return;
+            Arrive(job);
+            _leaveAt = float.MaxValue; // no phone calls during the take
+        }
+        public void ScriptGoTo(Vector3 p) { if (!IsServer) return; _goal = ClampToRoom(p); _goalDefect = null; SetMode(Mode.Patrol); }
+        public void ScriptLookAt(Vector3 p, float seconds)
+        {
+            if (!IsServer) return;
+            var d = p - transform.position; d.y = 0;
+            if (d.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(d);
+            SetMode(Mode.LookAround, seconds);
+            _lookYaw = transform.eulerAngles.y; _lookT = 0f; // the head-sweep starts pointing straight at it
+        }
+        // ready to be beaned again (and not about to skid in the puddle he's standing in)
+        public void ScriptClearImmunity() { _stunImmuneUntil = 0f; _immuneUntil = 0f; _slipImmuneUntil = Mathf.Max(_slipImmuneUntil, Time.time + 8f); }
+        public void ScriptAllowSlip() => _slipImmuneUntil = 0f;
+        public void ScriptWarp(Vector3 p, Vector3 lookAt)
+        {
+            if (!IsServer) return;
+            p.y = transform.position.y;
+            var d = lookAt - p; d.y = 0;
+            transform.SetPositionAndRotation(p, d.sqrMagnitude > 0.01f ? Quaternion.LookRotation(d) : transform.rotation);
         }
 
         // Anyone: something crashed (thrown item hitting hard)
@@ -679,6 +712,7 @@ namespace BodgeSquad.Job
         [Rpc(SendTo.Everyone)]
         void YellRpc(int kind)
         {
+            Yelled?.Invoke(kind);
             if (_voice == null) return;
             _grunts ??= new[] { Grunt(0), Grunt(1), Grunt(2), Grunt(3) };
             _voice.pitch = UnityEngine.Random.Range(0.92f, 1.08f);

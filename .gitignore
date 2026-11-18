@@ -141,3 +141,6 @@ crashlytics-build.properties
 .DS_Store
 
 /Builds/
+
+# trailer video is large: upload it to YouTube/itch instead
+Docs/Trailer/*.mp4

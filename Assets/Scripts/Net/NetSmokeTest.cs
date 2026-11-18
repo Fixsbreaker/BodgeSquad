@@ -17,6 +17,7 @@ namespace BodgeSquad.Net
             int sd = System.Array.IndexOf(args, "-bodgeShotsDir");
             if (sd >= 0 && sd + 1 < args.Length) _shots = args[sd + 1];
             if (System.Array.IndexOf(args, "-bodgeSmoke") >= 0) StartCoroutine(Run());
+            if (System.Array.IndexOf(args, "-bodgeTrailer") >= 0) gameObject.AddComponent<BodgeSquad.Trailer.TrailerDirector>();
             if (System.Array.IndexOf(args, "-bodgeSmoke") >= 0 && _shots != null) StartCoroutine(WatchInspector());
             int shot = System.Array.IndexOf(args, "-bodgeShot");
             if (shot >= 0 && shot + 1 < args.Length) StartCoroutine(Shot(args[shot + 1]));

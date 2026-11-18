@@ -40,6 +40,7 @@ namespace BodgeSquad.Players
             transform.SetPositionAndRotation(pos, rot);
             _cc.enabled = true;
             _planarVelocity = Vector3.zero; _verticalVelocity = 0f;
+            _downUntil = 0f; _getUp = 0f; _paintySteps = 0; _wasSlippery = false; // a fresh start: on your feet, clean boots
         }
 
         // ---- slapstick: paint puddles and pratfalls ---------------------------------------
