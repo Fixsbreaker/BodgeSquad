@@ -53,11 +53,32 @@ namespace BodgeSquad.Net
             res.Reason = room ? "" : "The house is full (4 bodgers max)";
         }
 
+        // A LAN join that never got in: the transport gives up and shuts down without a disconnect event
+        void Update()
+        {
+            if (_lanTarget == null || Net == null) return;
+            if (BodgeSquad.Players.NetworkBodger.Local != null) { _lanTarget = null; return; } // we're in
+            if ((!Net.IsListening && !Net.ShutdownInProgress && Time.time > _joinStarted + 1f) || (!Net.IsConnectedClient && Time.time > _joinStarted + 10f))
+            {
+                string ip = _lanTarget;
+                _lanTarget = null;
+                string why = $"No game found at {ip}. Press HOST ON LAN on the other computer first, then type the address it shows in its top-right corner.";
+                Debug.Log($"[Net] {why}");
+                _ = BackToMenu(why);
+            }
+        }
+        float _joinStarted;
+
         void OnDisconnected(ulong clientId)
         {
             if (Net.IsServer) { Debug.Log($"[Net] Client {clientId} left"); return; }
             if (clientId != Net.LocalClientId) return;
-            string why = string.IsNullOrEmpty(Net.DisconnectReason) ? "Disconnected from the host" : Net.DisconnectReason;
+            string reason = Net.DisconnectReason ?? "";
+            bool neverGotIn = BodgeSquad.Players.NetworkBodger.Local == null && _lanTarget != null;
+            string why = reason.Contains("full") ? reason                       // the host turned us away
+                : neverGotIn ? $"No game found at {_lanTarget}. Press HOST ON LAN on the other computer first, then type the address it shows in its top-right corner."
+                : "Disconnected from the host";
+            _lanTarget = null;
             Debug.Log($"[Net] {why}");
             _ = BackToMenu(why);
         }
@@ -140,8 +161,13 @@ namespace BodgeSquad.Net
         {
             if (Busy || InGame) return;
             ip = string.IsNullOrWhiteSpace(ip) ? "127.0.0.1" : ip.Trim();
+            _lanTarget = ip;
+            _joinStarted = Time.time;
             Transport.SetConnectionData(ip, LanPort);
-            Status = Net.StartClient() ? $"Joining {ip}…" : $"Couldn't connect to {ip}";
+            // give up after ~8 s (the default keeps trying for a minute and looks frozen)
+            Transport.ConnectTimeoutMS = 1000;
+            Transport.MaxConnectAttempts = 8;
+            Status = Net.StartClient() ? $"Looking for a game at {ip}…" : $"Couldn't connect to {ip}";
             Debug.Log($"[Net] {Status}");
         }
 
@@ -175,6 +201,7 @@ namespace BodgeSquad.Net
         }
 
         public static string PendingStatus;
+        string _lanTarget; // the address we're trying to join, until we're in
 
         void Fail(string what, Exception e)
         {

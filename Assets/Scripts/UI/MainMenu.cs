@@ -71,7 +71,7 @@ namespace BodgeSquad.UI
             var quit = Fancy(c, "Quit", new Vector2(0, -250), new Vector2(260, 60), "QUIT", UiKit.WithAlpha(paper, 0.15f), paper, Application.Quit);
             _buttons = new[] { hostOnline, joinOnline, hostLan, joinLan, quit };
 
-            _status = UiKit.Text("Status", c, new Vector2(.5f, .5f), new Vector2(.5f, 1), new Vector2(0, -305), new Vector2(560, 110), 26, TextAlignmentOptions.Top, paper);
+            _status = UiKit.Text("Status", c, new Vector2(.5f, .5f), new Vector2(.5f, 1), new Vector2(0, -305), new Vector2(560, 150), 26, TextAlignmentOptions.Top, paper);
             var foot = UiKit.Text("Footer", c, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 10), new Vector2(560, 60), 22, TextAlignmentOptions.Bottom, UiKit.WithAlpha(paper, 0.7f));
             foot.text = "Up to 4 bodgers, each on their own PC.\nOne hosts, the others join.";
 

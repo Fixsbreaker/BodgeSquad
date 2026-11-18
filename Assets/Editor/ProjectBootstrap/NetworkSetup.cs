@@ -231,6 +231,8 @@ namespace ProjectBootstrap
             PlayerSettings.productName = "Bodge Squad";
             PlayerSettings.companyName = "Bodge Squad Team";
             PlayerSettings.runInBackground = true; // keep the host ticking when alt-tabbed
+            // ordinary Intel/AMD PCs: building on an Apple-silicon Mac would otherwise default to ARM64
+            UnityEditor.WindowsStandalone.UserBuildSettings.architecture = UnityEditor.Build.OSArchitecture.x64;
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
                 scenes = new[] { ScenePath },
