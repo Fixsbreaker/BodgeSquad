@@ -67,6 +67,7 @@ namespace BodgeSquad.Job
         // Is this spot (feet) in a puddle?
         public bool IsSlippery(Vector3 feet)
         {
+            if (SurfaceMarks.Instance != null && SurfaceMarks.Instance.IsWetAt(feet)) return true; // fresh paint brushed on the floor
             if (_list == null) return false;
             for (int i = 0; i < _list.Count; i++)
             {

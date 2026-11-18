@@ -292,6 +292,22 @@ namespace BodgeSquad.Net
                     Debug.Log($"[Smoke] Ran into a paint puddle ({Spills.Instance.Count} puddles): fell over {down}");
                     yield return new WaitForSeconds(2.6f);
                     Debug.Log($"[Smoke] Back on feet: {!me.IsDown && !fpcI.IsDown}");
+                    // a painted stripe across the floor (no puddle): fresh paint is slippery too
+                    for (int i = 0; i < 6; i++)
+                    {
+                        var at = new Vector3(-2.2f, 2f, -2.6f + i * 0.2f);
+                        if (Physics.Raycast(at, Vector3.down, out var fh, 3f, ~((1 << 2) | (1 << NetworkBodger.LocalBodyLayer))))
+                            SurfaceMarks.Instance.Place(KitType.PaintTin, fh, 0.26f, i * 40f);
+                    }
+                    yield return new WaitForSeconds(0.6f);
+                    bool wetHere = Spills.Instance.IsSlippery(new Vector3(-2.2f, 0f, -2.1f));
+                    fpcI.Teleport(new Vector3(-3.4f, 0f, -2.1f), Quaternion.LookRotation(Vector3.right));
+                    yield return null;
+                    bool downStripe = false; t0 = Time.time;
+                    while (Time.time - t0 < 1.5f) { downStripe |= me.IsDown || fpcI.IsDown; if (downStripe) break; fpcI.TestRun(new Vector3(4f, 0f, 0f)); yield return null; } // keep running at it
+                    Debug.Log($"[Smoke] Painted floor stripe: wet {wetHere}, walking into it → fell {downStripe}; a footprint is slippery: {Spills.Instance.IsSlippery(new Vector3(4.5f, 0f, 4f))}");
+                    if (_shots != null) { var cam0 = new Vector3(-1.2f, 1.5f, -0.6f); SideShot(cam0, new Vector3(-2.2f, 0f, -2.1f), $"{_shots}/wet_stripe.png"); }
+                    yield return new WaitForSeconds(3f);
                     // bean him with the plank from behind
                     var plankC = GameObject.Find("Plank")?.GetComponent<Carryable>();
                     var ci2 = me.GetComponent<CarryInteractor>();
@@ -307,9 +323,8 @@ namespace BodgeSquad.Net
                             var behind = insp.transform.position - insp.transform.forward * 1.8f; behind.y = 0f;
                             fpcI.Teleport(behind, Quaternion.LookRotation(insp.transform.position - behind));
                             fpcI.enabled = false;
-                            yield return null;
                             ci2.Eye.LookAt(insp.transform.position + Vector3.up * 1.3f);
-                            if (ci2.Held != null) ci2.Held.Warp(ci2.Eye.position + ci2.Eye.forward * 0.8f, ci2.Eye.rotation); // it was left behind by the teleport
+                            if (ci2.Held != null) ci2.Held.Warp(ci2.Eye.position + ci2.Eye.forward * 0.8f, ci2.Eye.rotation); // bring it along before physics notices the teleport
                             yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
                             Debug.Log($"[Smoke] Throwing the plank, inspector mode {insp.CurrentMode}");
                             ci2.TestThrow();

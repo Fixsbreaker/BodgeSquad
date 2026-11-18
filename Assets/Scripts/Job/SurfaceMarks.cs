@@ -19,6 +19,7 @@ namespace BodgeSquad.Job
             public float Size;
             public float Roll;
             public byte Kit;         // KitType
+            public float WetUntil;   // fresh paint on the floor: slippery until this server time (0 = dry)
             public bool Equals(Mark o) => Pos == o.Pos && Normal == o.Normal && Parent == o.Parent && Kit == o.Kit && Roll == o.Roll;
         }
 
@@ -108,9 +109,14 @@ namespace BodgeSquad.Job
 
         // Anyone: put a mark down (sent to the host, then drawn everywhere)
         float _nextFacePaint;
-        public void Place(KitType kit, RaycastHit hit, float size, float roll)
+        public const float WetSeconds = 30f;
+
+        public void Place(KitType kit, RaycastHit hit, float size, float roll, bool wet = true)
         {
             var m = new Mark { Size = size, Roll = roll, Kit = (byte)kit, Parent = World, Pos = hit.point, Normal = hit.normal };
+            // paint brushed onto the floor stays wet (and slippery) for a while; footprints don't count
+            bool floor = hit.normal.y > 0.7f && hit.rigidbody == null; // the house's own floor (and rug), not furniture
+            if (wet && kit == KitType.PaintTin && floor) m.WetUntil = 1f;
             if (hit.rigidbody != null && hit.rigidbody.GetComponent<RepairKit>() != null) return; // not on tins and rolls
             // never stuck on the inspector (he walks off and they'd hang in the air); paint in his face blinds him instead
             var insp = hit.collider != null ? hit.collider.GetComponentInParent<Inspector>() : null;
@@ -138,6 +144,7 @@ namespace BodgeSquad.Job
         {
             var world = m.Pos;
             if (m.Parent != World && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(m.Parent, out var po)) world = po.transform.TransformPoint(m.Pos);
+            if (m.WetUntil > 0f) m.WetUntil = m.Parent == World ? NetworkManager.ServerTime.TimeAsFloat + WetSeconds : 0f;
             Inspector.Instance?.ReportWork(p.Receive.SenderClientId, (KitType)m.Kit, world);
             if (_marks.Count >= MaxMarks) _marks.RemoveAt(0);
             _marks.Add(m);
@@ -184,8 +191,42 @@ namespace BodgeSquad.Job
             return a;
         }
 
+        // Fresh floor paint under these feet? Two wet dabs within reach (a single fleck won't floor you).
+        public bool IsWetAt(Vector3 feet)
+        {
+            if (_marks == null || !IsSpawned) return false;
+            float now = NetworkManager.ServerTime.TimeAsFloat;
+            int hits = 0;
+            for (int i = _marks.Count - 1; i >= 0; i--)
+            {
+                var m = _marks[i];
+                if (m.WetUntil <= now || m.Parent != World) continue;
+                if (Mathf.Abs(feet.y - m.Pos.y) > 0.35f) continue;
+                float dx = feet.x - m.Pos.x, dz = feet.z - m.Pos.z, r = m.Size * 0.55f + 0.12f;
+                if (dx * dx + dz * dz < r * r && ++hits >= 2) return true;
+            }
+            return false;
+        }
+
+        // Wet paint is glossy; it dries to the normal matte colour
+        Material _wetPaint;
+        readonly List<(Renderer r, float until)> _wet = new();
+
+        void Update()
+        {
+            if (_wet.Count == 0 || !IsSpawned) return;
+            float now = NetworkManager.ServerTime.TimeAsFloat;
+            for (int i = _wet.Count - 1; i >= 0; i--)
+            {
+                var (r, until) = _wet[i];
+                if (r == null) { _wet.RemoveAt(i); continue; }
+                if (now >= until) { r.sharedMaterial = kitMaterials[(int)KitType.PaintTin]; _wet.RemoveAt(i); }
+            }
+        }
+
         void ClearDrawn()
         {
+            _wet.Clear();
             foreach (var g in _drawn) if (g != null) Destroy(g);
             _drawn.Clear();
         }
@@ -214,6 +255,17 @@ namespace BodgeSquad.Job
             var r = q.GetComponent<Renderer>();
             int k = Mathf.Clamp(m.Kit, 0, kitMaterials.Length - 1);
             if (kitMaterials.Length > 0 && kitMaterials[k] != null) r.sharedMaterial = kitMaterials[k];
+            if (m.WetUntil > NetworkManager.ServerTime.TimeAsFloat && kitMaterials[k] != null)
+            {
+                if (_wetPaint == null)
+                {
+                    _wetPaint = new Material(kitMaterials[k]) { name = "WetPaint" };
+                    _wetPaint.SetFloat("_Smoothness", 0.95f);
+                    _wetPaint.SetColor("_BaseColor", Color.Lerp(kitMaterials[k].GetColor("_BaseColor"), BodgeSquad.Art.Palette.FreshPaint, 0.6f));
+                }
+                r.sharedMaterial = _wetPaint;
+                _wet.Add((r, m.WetUntil));
+            }
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return q;
         }

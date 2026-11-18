@@ -146,7 +146,7 @@ namespace BodgeSquad.Players
             var from = transform.position + transform.right * (_footLeft ? -0.12f : 0.12f) + Vector3.up * 0.3f;
             if (!Physics.Raycast(from, Vector3.down, out var hit, 0.8f, ~((1 << NetworkBodger.LocalBodyLayer) | (1 << 2)), QueryTriggerInteraction.Ignore)) return;
             _paintySteps--;
-            BodgeSquad.Job.SurfaceMarks.Instance?.Place(BodgeSquad.Job.KitType.PaintTin, hit, 0.17f, transform.eulerAngles.y);
+            BodgeSquad.Job.SurfaceMarks.Instance?.Place(BodgeSquad.Job.KitType.PaintTin, hit, 0.17f, transform.eulerAngles.y, wet: false);
         }
 
         // Down: feet fly up, you hit the floor, slide on your back through the paint, then climb up again
