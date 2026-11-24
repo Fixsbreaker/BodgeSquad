@@ -22,7 +22,7 @@ namespace BodgeSquad.Job
     // mood, suspicion and the radio to every screen.
     public class Inspector : NetworkBehaviour
     {
-        public enum Mode { Away, Patrol, LookAround, Investigate, Radio, Suspicious, Scold, Leaving, Final, Stunned, Blinded, Slipped }
+        public enum Mode { Away, Patrol, LookAround, Investigate, Radio, Suspicious, Scold, Leaving, Final, Stunned, Blinded, Slipped, Chatting }
 
         [SerializeField] Transform body;          // leans/taps
         [SerializeField] Transform entrance;      // where he appears
@@ -51,7 +51,7 @@ namespace BodgeSquad.Job
         public bool Present => _visible.Value;
         public bool RadioOn => _radioOn.Value;
         public float NextVisitAt => _nextVisit.Value;
-        public bool Watching => Present && CurrentMode is not (Mode.Final or Mode.Away or Mode.Stunned or Mode.Blinded or Mode.Slipped);
+        public bool Watching => Present && CurrentMode is not (Mode.Final or Mode.Away or Mode.Stunned or Mode.Blinded or Mode.Slipped or Mode.Chatting);
 
         void Awake()
         {
@@ -133,6 +133,8 @@ namespace BodgeSquad.Job
             _suspicion.Value = 0f;
             _radioOn.Value = false;
             _visits = 0;
+            _talkReady.Clear();
+            ClearKnacks();
             _radioTrips = 0;
             _warned = false;
             IgnoreWork = false;
@@ -340,7 +342,7 @@ namespace BodgeSquad.Job
         public void NoiseRpc(Vector3 point, float loudness)
         {
             var m = CurrentMode;
-            if (!Present || m is Mode.Final or Mode.Leaving or Mode.Scold or Mode.Radio or Mode.Stunned or Mode.Blinded or Mode.Slipped || Time.time < _noiseCooldown) return;
+            if (!Present || m is Mode.Final or Mode.Leaving or Mode.Scold or Mode.Radio or Mode.Stunned or Mode.Blinded or Mode.Slipped or Mode.Chatting || Time.time < _noiseCooldown) return;
             if (loudness < 0.3f) return;
             _noiseCooldown = Time.time + 3f;
             _goal = ClampToRoom(point);
@@ -466,6 +468,24 @@ namespace BodgeSquad.Job
                     }
                     break;
 
+                case Mode.Chatting:
+                {
+                    _lookT += Time.deltaTime;
+                    if (_talker != null)
+                    {
+                        var d = _talker.position - transform.position; d.y = 0;
+                        if (d.sqrMagnitude > 0.01f) transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(d), turnSpeed * Time.deltaTime);
+                    }
+                    body.localRotation = Quaternion.Euler(Mathf.Sin(_lookT * 6f) * 4f, Mathf.Sin(_lookT * 2.3f) * 8f, 0); // animated nodding and gesturing
+                    if (Time.time >= _modeUntil)
+                    {
+                        body.localRotation = Quaternion.identity;
+                        job.Say("Inspector: \"…Anyway! Where was I?\"");
+                        PickPatrolGoal(job);
+                    }
+                    break;
+                }
+
                 case Mode.Stunned:
                 case Mode.Blinded:
                     _lookT += Time.deltaTime;
@@ -535,6 +555,59 @@ namespace BodgeSquad.Job
             job.Say(_visits == 1
                 ? "The inspector let himself in for a \"quick look around\". Don't let him SEE you bodge!"
                 : "The inspector is back from his phone call!");
+            if (_visits == 1) DealKnacks(job);
+        }
+
+        // ---------------------------------------------------------------- knacks (host)
+        // When he first walks in, every bodger draws a different random Knack for the rest of the job
+        void DealKnacks(JobManager job)
+        {
+            var deck = new List<int>();
+            for (int i = 0; i < Knacks.Count; i++) deck.Add(i);
+            for (int i = deck.Count - 1; i > 0; i--) { int j = UnityEngine.Random.Range(0, i + 1); (deck[i], deck[j]) = (deck[j], deck[i]); }
+            var parts = new List<string>();
+            int n = 0;
+            var bodgers = new List<NetworkBodger>(NetworkBodger.All);
+            bodgers.Sort((a, b) => a.Index.CompareTo(b.Index));
+            foreach (var b in bodgers)
+            {
+                if (b == null) continue;
+                var k = (Knack)deck[n++ % deck.Count];
+                b.SetKnack(k);
+                parts.Add($"P{b.Index + 1} {Knacks.Name(k)}");
+            }
+            if (parts.Count > 0) job.Say("Knacks dealt! " + string.Join("  ·  ", parts));
+        }
+
+        public bool KnacksDealt => IsServer && _visits > 0;
+
+        public static void ClearKnacks()
+        {
+            foreach (var b in NetworkBodger.All) if (b != null) b.SetKnack(Knack.None);
+        }
+
+        Transform _talker;
+        readonly Dictionary<ulong, float> _talkReady = new();
+
+        // Smooth Talker: keep him chatting (he looks at you and sees nothing else)
+        [Rpc(SendTo.Server)]
+        public void SmoothTalkRpc(RpcParams p = default)
+        {
+            var job = JobManager.Instance;
+            ulong id = p.Receive.SenderClientId;
+            NetworkBodger who = null;
+            foreach (var b in NetworkBodger.All) if (b != null && b.OwnerClientId == id) who = b;
+            var m = CurrentMode;
+            if (job == null || who == null || who.CurrentKnack != Knack.SmoothTalker || !Present) return;
+            if (m is not (Mode.Patrol or Mode.LookAround or Mode.Investigate or Mode.Suspicious or Mode.Radio or Mode.Leaving)) return;
+            if (Vector3.Distance(who.transform.position, transform.position) > Knacks.TalkRange + 0.5f) return;
+            if (_talkReady.TryGetValue(id, out var ready) && Time.time < ready) return;
+            _talkReady[id] = Time.time + Knacks.TalkCooldown - 1f;
+            _talker = who.transform;
+            _suspicion.Value = 0f; // what was he worried about again?
+            SetMode(Mode.Chatting, Knacks.TalkSeconds);
+            string[] topics = { "his holiday photos", "his favourite grout", "the weather", "his allotment", "the 1998 building code" };
+            job.Say($"P{who.Index + 1} asks the inspector about {topics[UnityEngine.Random.Range(0, topics.Length)]}. He can't stop talking!");
         }
 
         void Leave(JobManager job)
@@ -610,7 +683,7 @@ namespace BodgeSquad.Job
             float dt = 0.1f;
             _nextVision = Time.time + dt;
             var m = CurrentMode;
-            if (m is Mode.Scold or Mode.Away or Mode.Final or Mode.Stunned or Mode.Blinded or Mode.Slipped) return;
+            if (m is Mode.Scold or Mode.Away or Mode.Final or Mode.Stunned or Mode.Blinded or Mode.Slipped or Mode.Chatting) return;
 
             NetworkBodger caughtBy = null;
             Work caughtWork = default;
@@ -975,6 +1048,7 @@ namespace BodgeSquad.Job
                     Mode.Radio => "#!",
                     Mode.Blinded => "@#$%!",
                     Mode.Slipped => "!?",
+                    Mode.Chatting => "blah blah",
                     _ => "",
                 };
                 _icon.text = txt;

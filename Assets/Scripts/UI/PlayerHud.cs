@@ -1,6 +1,7 @@
 using BodgeSquad.Art;
 using BodgeSquad.Interaction;
 using BodgeSquad.Job;
+using BodgeSquad.Players;
 using TMPro;
 using UnityEngine;
 
@@ -13,7 +14,7 @@ namespace BodgeSquad.UI
         [SerializeField] Camera playerCamera;
         [SerializeField] CarryInteractor interactor;
 
-        TextMeshProUGUI _prompt, _message, _meterLabel, _seen;
+        TextMeshProUGUI _prompt, _message, _meterLabel, _seen, _knack, _lookout;
         UnityEngine.UI.Image _crosshair, _meterFill;
         GameObject _meter;
         RectTransform[] _brackets;
@@ -34,6 +35,10 @@ namespace BodgeSquad.UI
 
             _crosshair = UiKit.Panel("Crosshair", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(10, 10), UiKit.WithAlpha(Palette.UiPaper, 0.9f));
             _prompt = UiKit.Text("Prompt", root, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 60), new Vector2(1600, 140), 44, TextAlignmentOptions.Bottom);
+            // This job's Knack, bottom-left; and the Lookout's always-on marker over the inspector
+            _knack = UiKit.Text("Knack", root, new Vector2(0, 0), new Vector2(0, 0), new Vector2(24, 44), new Vector2(900, 90), 28, TextAlignmentOptions.BottomLeft);
+            _lookout = UiKit.Text("LookoutMarker", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(320, 50), 26, TextAlignmentOptions.Center, Palette.TintYellow);
+            _lookout.fontStyle = FontStyles.Bold;
             _seen = UiKit.Text("SeenWarning", root, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, 120), new Vector2(1200, 70), 46, TextAlignmentOptions.Center, Palette.Accent);
             _message = UiKit.Text("Message", root, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 210), new Vector2(1500, 70), 40, TextAlignmentOptions.Bottom, Palette.Accent);
 
@@ -182,6 +187,7 @@ namespace BodgeSquad.UI
 
             _prompt.text = prompt;
             _seen.text = SeenWarning(kit);
+            UpdateKnack(kb);
             _message.text = interactor.Message ?? "";
             if (_debug != null) _debug.text = $"looking at: {interactor.DebugLook}{(interactor.LookCarryable != null ? $"  → can grab {interactor.LookCarryable.name}" : "")}";
             var target = held == null ? interactor.LookCarryable : null;
@@ -210,6 +216,40 @@ namespace BodgeSquad.UI
                 return Time.time % 0.4f < 0.25f ? "HE'S WATCHING YOU BODGE! STOP!" : "";
             return bodging ? "<size=75%>The inspector can see you: don't bodge now</size>"
                            : "<size=65%><color=#FFE08A>The inspector can see you</color></size>";
+        }
+
+        KnackAbility _ability;
+        void UpdateKnack(bool kb)
+        {
+            if (_ability == null) _ability = interactor.GetComponent<KnackAbility>();
+            var job = JobManager.Instance;
+            var k = _ability != null ? _ability.Current : Knack.None;
+            bool on = k != Knack.None && job != null && job.Phase == JobPhase.Renovation;
+            if (!on) { _knack.text = ""; _lookout.text = ""; return; }
+            string y = ColorUtility.ToHtmlStringRGB(Palette.TintYellow), g = ColorUtility.ToHtmlStringRGB(Palette.Pass);
+            string key = kb ? "[Q]" : "[RB]";
+            string state = !Knacks.IsActive(k) ? "always on"
+                : _ability.SpeedPainting ? $"<color=#{g}><b>ACTIVE {Mathf.CeilToInt(_ability.ActiveFor)}s</b></color>"
+                : _ability.ReadyIn > 0f ? $"ready in {Mathf.CeilToInt(_ability.ReadyIn)}s"
+                : $"<color=#{y}><b>{key} use</b></color>";
+            _knack.text = $"KNACK: <color=#{y}><b>{Knacks.Name(k)}</b></color>  ·  {state}\n<size=75%>{Knacks.Blurb(k)}</size>";
+
+            // Lookout: a marker over the inspector, through walls, pinned to the screen edge when he's off-screen
+            var insp = Inspector.Instance;
+            if (k != Knack.Lookout || insp == null || !insp.Present || playerCamera == null) { _lookout.text = ""; return; }
+            var world = insp.transform.position + Vector3.up * 2.3f;
+            var sp = playerCamera.WorldToScreenPoint(world);
+            bool behind = sp.z < 0f;
+            if (behind) { sp.x = Screen.width - sp.x; sp.y = Screen.height - sp.y; }
+            float m = 60f;
+            bool off = behind || sp.x < m || sp.x > Screen.width - m || sp.y < m || sp.y > Screen.height - m;
+            sp.x = Mathf.Clamp(sp.x, m, Screen.width - m); sp.y = Mathf.Clamp(sp.y, m, Screen.height - m);
+            var rt = (RectTransform)_lookout.transform;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)rt.parent, sp, playerCamera, out var local)) rt.anchoredPosition = local;
+            bool sees = insp.CanSee(interactor.transform.position + Vector3.up * 1.2f, interactor.transform);
+            int dist = Mathf.RoundToInt(Vector3.Distance(insp.transform.position, interactor.transform.position));
+            _lookout.color = sees ? Palette.Accent : Palette.TintYellow;
+            _lookout.text = off ? $"INSPECTOR {dist}m" : $"v INSPECTOR {dist}m v";
         }
 }
 }

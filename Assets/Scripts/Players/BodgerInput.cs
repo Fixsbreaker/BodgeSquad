@@ -60,6 +60,14 @@ namespace BodgeSquad.Players
         public bool InteractPressed() => !Blocked && Interact.WasPressedThisFrame();
         public bool AttackPressed() => !Blocked && Attack.WasPressedThisFrame();
         // Throw whatever you hold: right mouse / left shoulder (left mouse is "work" while holding a tool)
+        // Use your Knack: Q / right shoulder
+        public bool KnackPressed()
+        {
+            if (Blocked) return false;
+            if (Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame) return true;
+            return Gamepad.current != null && Gamepad.current.rightShoulder.wasPressedThisFrame;
+        }
+
         public bool ThrowPressed()
         {
             if (Blocked) return false;

@@ -229,6 +229,35 @@ namespace BodgeSquad.Net
                 fpcI.Teleport(new Vector3(-1f, 0f, 0f), Quaternion.identity);
                 yield return new WaitForSeconds(6f); // scold + grace
 
+                // Knacks: dealt on his first visit, all different; Smooth Talker keeps him chatting
+                {
+                    var ks = new System.Collections.Generic.List<string>();
+                    foreach (var b in NetworkBodger.All) ks.Add($"P{b.Index + 1}={b.CurrentKnack}");
+                    bool distinct = new System.Collections.Generic.HashSet<Knack>(System.Linq.Enumerable.Select(NetworkBodger.All, x => x.CurrentKnack)).Count == NetworkBodger.All.Count;
+                    Debug.Log($"[Smoke] Knacks seen here: {string.Join(", ", ks)} (all different: {distinct}); mine: {me.CurrentKnack}");
+                }
+                if (Unity.Netcode.NetworkManager.Singleton.IsServer)
+                {
+                    me.SetKnack(Knack.SmoothTalker);
+                    yield return null;
+                    float tw = Time.time;
+                    while (!insp.Watching && Time.time - tw < 6f) yield return null;
+                    var near = insp.transform.position + insp.transform.forward * 1.6f; near.y = 0f;
+                    fpcI.Teleport(near, Quaternion.LookRotation(insp.transform.position - near));
+                    yield return null;
+                    bool used = me.GetComponent<KnackAbility>().TryUse();
+                    bool chatting = false; tw = Time.time;
+                    while (Time.time - tw < 1f) { chatting |= insp.CurrentMode == Inspector.Mode.Chatting; if (chatting) break; yield return null; }
+                    Debug.Log($"[Smoke] Smooth Talker used {used}: inspector chatting {chatting}, watching {insp.Watching}");
+                    yield return new WaitForSeconds(Knacks.TalkSeconds + 0.5f);
+                    Debug.Log($"[Smoke] After the chat: {insp.CurrentMode}");
+                    fpcI.Teleport(new Vector3(-1f, 0f, 0f), Quaternion.identity);
+                }
+                else
+                {
+                    var ab = me.GetComponent<KnackAbility>();
+                    if (me.CurrentKnack == Knack.SpeedPainter) { ab.TryUse(); Debug.Log($"[Smoke] Speed Painter active: {ab.SpeedPainting}"); }
+                }
                 if (Unity.Netcode.NetworkManager.Singleton.IsServer)
                 {
                     insp.ToggleRadioRpc(me.Index);

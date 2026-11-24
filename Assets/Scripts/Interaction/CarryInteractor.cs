@@ -59,6 +59,10 @@ namespace BodgeSquad.Interaction
             _fpc = GetComponent<FirstPersonController>();
         }
         FirstPersonController _fpc;
+        KnackAbility _knack;
+        KnackAbility Ability => _knack != null ? _knack : (_knack = GetComponent<KnackAbility>());
+        // Strongback: nothing is heavy for you
+        float Weight => _held == null ? 1f : (Ability != null && Ability.Strong ? Mathf.Min(_held.CarryWeight, 1f) : _held.CarryWeight);
 
         // Own body and invisible blockers (the ceiling lid sits on Ignore Raycast) never get in the way
         public void SetIgnoredLayer(int layer) => _rayMask = ~((1 << layer) | (1 << 2));
@@ -76,10 +80,10 @@ namespace BodgeSquad.Interaction
 
             if (_input.InteractPressed()) OnInteract();
             else if (_held != null && _input.ThrowPressed())
-                Release(eye.forward * throwSpeed / _held.CarryWeight);
+                Release(eye.forward * throwSpeed * (Ability != null && Ability.Strong ? 1.35f : 1f) / Weight);
             else if (HeldKit != null) UseTool(HeldKit);
             else if (_held != null && _input.AttackPressed())
-                Release(eye.forward * throwSpeed / _held.CarryWeight);
+                Release(eye.forward * throwSpeed * (Ability != null && Ability.Strong ? 1.35f : 1f) / Weight);
             if (HeldKit == null) Working = false;
             FlushCells();
         }
@@ -179,7 +183,8 @@ namespace BodgeSquad.Interaction
                 return;
             }
             Working = true;
-            kit.Spend(click ? 1f : Time.deltaTime); // every second (or strip) counts, on target or not
+            bool fast = Ability != null && Ability.SpeedPainting;
+            kit.Spend(click ? 1f : Time.deltaTime * (fast ? 0.5f : 1f)); // every second (or strip) counts, on target or not
 
             // the visible stroke
             float brushM = Mathf.Max(0.08f, RepairRules.Brush(kit.Type) * 0.1f * 2f);
@@ -232,7 +237,7 @@ namespace BodgeSquad.Interaction
             {
                 if ((d.transform.position - point).sqrMagnitude > 0.9f * 0.9f) continue;
                 if (d.State == RepairState.Fixed) continue;
-                ulong cells = click ? d.StripMask(point, roll) : d.BrushMask(point, RepairRules.Brush(kit));
+                ulong cells = click ? d.StripMask(point, roll) : d.BrushMask(point, RepairRules.Brush(kit) * (Ability != null && Ability.SpeedPainting ? 1.6f : 1f));
                 if (cells == 0) continue;
                 _pendingCells.TryGetValue(d, out var acc);
                 _pendingCells[d] = acc | cells;
@@ -289,7 +294,7 @@ namespace BodgeSquad.Interaction
             Vector3 toTarget = target - rb.worldCenterOfMass;
             if (toTarget.magnitude > dropDistance) { Release(Vector3.zero); return; }
 
-            Vector3 desired = Vector3.ClampMagnitude(toTarget * followStrength / _held.CarryWeight, maxCarrySpeed);
+            Vector3 desired = Vector3.ClampMagnitude(toTarget * followStrength / Weight, maxCarrySpeed);
             rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, desired, 0.5f);
             rb.angularVelocity *= 0.85f;
         }
@@ -298,12 +303,12 @@ namespace BodgeSquad.Interaction
         public void TestGrab(Carryable c) => TryGrab(c);
         public Transform Eye => eye;
         public void TestDrop() => Release(Vector3.zero);
-        public void TestThrow() { if (_held != null) Release(eye.forward * throwSpeed / _held.CarryWeight); }
+        public void TestThrow() { if (_held != null) Release(eye.forward * throwSpeed * (Ability != null && Ability.Strong ? 1.35f : 1f) / Weight); }
         // Falling over: whatever you hold flies out of your hands
         public void Fumble()
         {
             if (_held == null) return;
-            Release((Vector3.up * 2.5f + transform.forward * 1.5f + Random.insideUnitSphere) / _held.CarryWeight, thrown: false); // an accident: no stuns, no assault fine
+            Release((Vector3.up * 2.5f + transform.forward * 1.5f + Random.insideUnitSphere) / Weight, thrown: false); // an accident: no stuns, no assault fine
         }
         // Sweep the held tool over a whole defect, as a player would, for `seconds` of use
         public void TestSweep(Defect d, float seconds)

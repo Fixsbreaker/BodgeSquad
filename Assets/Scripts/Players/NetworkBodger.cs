@@ -26,6 +26,10 @@ namespace BodgeSquad.Players
         // Flat on the floor (slipped in paint, hit by flying junk). Written by the owner, drawn everywhere.
         readonly NetworkVariable<bool> _down = new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public bool IsDown => _down.Value;
+        // This job's Knack (dealt by the host when the inspector first walks in; -1 = none yet)
+        readonly NetworkVariable<int> _knack = new(-1);
+        public Knack CurrentKnack => (Knack)_knack.Value;
+        public void SetKnack(Knack k) { if (IsServer) _knack.Value = (int)k; }
         float _tip, _tipVel;
         float _downUntil;
 
@@ -47,11 +51,25 @@ namespace BodgeSquad.Players
         {
             All.Add(this);
             if (IsServer) Slot.Value = FreeSlot();
+            if (IsServer && BodgeSquad.Job.Inspector.Instance != null && BodgeSquad.Job.Inspector.Instance.KnacksDealt)
+            {
+                // joined mid-job: a knack nobody else has, if there's one left
+                var free = new List<int>();
+                for (int k = 0; k < Knacks.Count; k++) free.Add(k);
+                foreach (var b in All) if (b != this) free.Remove((int)b.CurrentKnack);
+                _knack.Value = free.Count > 0 ? free[UnityEngine.Random.Range(0, free.Count)] : UnityEngine.Random.Range(0, Knacks.Count);
+            }
             Slot.OnValueChanged += (_, _) => ApplySlot();
             ApplySlot();
 
             if (!IsOwner) return;
             Local = this;
+            var ability = gameObject.AddComponent<KnackAbility>();
+            _knack.OnValueChanged += (_, now) =>
+            {
+                ability.ResetTimers();
+                if (now >= 0) GetComponent<CarryInteractor>().Flash($"Your Knack: {Knacks.Name((Knack)now)}!");
+            };
             foreach (var b in ownerOnly) if (b != null) b.enabled = true;
             cameraRig.SetActive(true);
             vcam.gameObject.SetActive(true);
