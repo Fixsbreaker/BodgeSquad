@@ -161,9 +161,54 @@ namespace BodgeSquad.Trailer
                 return (Vector3.Lerp(new Vector3(4.6f, 2.9f, 3.6f), new Vector3(4.0f, 2.6f, 3.0f), Ease(u)), new Vector3(-1.2f, 0.5f, -2.4f));
             });
 
+            // 8b — everyone gets a knack ---------------------------------------------------------- 4 s
+            Caption("EVERY BODGER GETS A RANDOM KNACK", 3.8f);
+            // park him by the west wall for the next two shots, staring at the radio
+            var chatSpot = new Vector3(-3.6f, 0f, -0.8f);
+            _insp.ScriptWarp(chatSpot, Inspector.RadioSpot);
+            _insp.ScriptLookAt(Inspector.RadioSpot, 20f);
+            for (int k = 0; k < 4; k++)
+            {
+                _actors[k].Place(new Vector3(-0.9f + k * 0.85f, 0, -1.6f), new Vector3(-0.9f + k * 0.85f, 0, -5f));
+                _actors[k].Cheer(4f, k * 0.15f);
+            }
+            KnackCards(3.9f);
+            yield return Shot(4f, u => (Vector3.Lerp(new Vector3(0.4f, 1.2f, -4.7f), new Vector3(0.4f, 1.15f, -4.2f), Ease(u)), new Vector3(0.4f, 1.35f, -1.6f)));
+            foreach (var a in _actors) a.Stand();
+
+            // 8c — Smooth Talker keeps him chatting while a mate bodges behind his back ------------ 6 s
+            var lowHole = DefectAt("west wall, low");
+            var ip8 = _insp.transform.position;
+            var talkSpot = Clamp(ip8 + new Vector3(1.35f, 0, 0.15f)); talkSpot.y = 0f; // east of him: he turns his back to the west wall
+            p1.Place(talkSpot, ip8);
+            _hostFpc.Teleport(talkSpot, Quaternion.LookRotation(ip8 - talkSpot)); // the real bodger does the talking
+            _host.SetKnack(Knack.SmoothTalker);
+            p2.Place(lowHole.transform.position + lowHole.transform.forward * 0.7f, lowHole.transform.position);
+            Caption("SMOOTH TALKER: KEEP HIM CHATTING...", 2.9f);
+            bool talked = false, mates = false;
+            var talkCam = new Vector3(-1.7f, 1.75f, 1.9f);
+            yield return Shot(6f, u =>
+            {
+                if (!talked && u > 0.08f)
+                {
+                    talked = true;
+                    _host.GetComponent<KnackAbility>().TryUse();
+                    p1.Talk(5.5f);
+                    StartCoroutine(PaintOver(p2, lowHole, 5f, 1));
+                    Cue("talk");
+                }
+                if (!mates && u > 0.5f) { mates = true; Caption("...WHILE YOUR MATES BODGE", 2.9f); }
+                var mid = Vector3.Lerp(_insp.transform.position, lowHole.transform.position, 0.35f) + Vector3.up * 0.9f;
+                return (Vector3.Lerp(talkCam, talkCam + new Vector3(-0.35f, -0.1f, -0.35f), Ease(u)), mid);
+            });
+            _insp.ScriptLookAt(_insp.transform.position + _insp.transform.forward, 4f); // stays put for the paint tin
+            Park();
+
             // 9 — blind him: a paint tin to the face, then he skids in it ---------------------- 7 s
             Caption("BLIND HIM", 3f);
-            p3.WalkTo(new Vector3(-2.2f, 0, -1.2f));
+            p3.Place(new Vector3(2.4f, 0, 3.4f), Vector3.zero); // clear the stage: only the thrower and him
+            p1.Place(new Vector3(3.2f, 0, 3.0f), Vector3.zero);
+            p2.Place(new Vector3(1.6f, 0, 3.8f), Vector3.zero);
             var thrower = _actors[3];
             var ipos = _insp.transform.position;
             var behind = ipos - _insp.transform.forward * 2.0f + _insp.transform.right * 0.3f; behind.y = 0; behind = Clamp(behind);
@@ -206,6 +251,7 @@ namespace BodgeSquad.Trailer
 
             // 11 — and watch your own step ------------------------------------------------------- 4.5 s
             Caption("FRESH PAINT IS SLIPPERY", 4.2f);
+            _insp.ScriptWarp(new Vector3(-3.4f, 0f, 1.6f), new Vector3(0.9f, 0f, -2.4f)); // out of the way, watching from the side
             var puddleAt = Floor(new Vector3(0.9f, 0f, -2.4f));
             Spills.Instance.SpillRpc(puddleAt, 0.85f);
             p3.Place(new Vector3(-2.6f, 0, -2.4f), new Vector3(3f, 0, -2.4f));
@@ -494,7 +540,9 @@ namespace BodgeSquad.Trailer
         void OnAnnounce(string line)
         {
             // his own words make good subtitles; the scoreboard lines are covered by the stamps
-            if (line.StartsWith("SPLAT") || line.StartsWith("BONK") || line.StartsWith("CAUGHT") || line.StartsWith("WHOA") || line.StartsWith("P")) return;
+            if (line.StartsWith("SPLAT") || line.StartsWith("BONK") || line.StartsWith("CAUGHT") || line.StartsWith("WHOA") || line.StartsWith("Knacks")) return;
+            if (line.StartsWith("P") && !line.Contains("asks the inspector")) return;
+            if (line.Contains("asks the inspector")) line = "\"So, inspector, " + line.Substring(line.IndexOf("about") + 6).Replace(". He can't stop talking!", "") + "?\"  He can't stop talking.";
             if (line.StartsWith("The inspector let himself")) line = "The inspector let himself in for a \"quick look around\".";
             _feed.text = line;
             _feedUntil = Now + 2.6f;
@@ -554,6 +602,46 @@ namespace BodgeSquad.Trailer
                 t += Time.deltaTime;
             }
             _stamp.gameObject.SetActive(false);
+        }
+
+        // Four knack cards popping in one after another, in the players' colours
+        void KnackCards(float hold) => StartCoroutine(KnackCardsAnim(hold));
+
+        IEnumerator KnackCardsAnim(float hold)
+        {
+            string[] names = { "SMOOTH TALKER", "SPEED PAINTER", "STRONGBACK", "LOOKOUT" };
+            string[] lines = { "keeps him chatting", "paints twice as fast", "lifts the sofa alone", "sees him through walls" };
+            var cards = new List<RectTransform>();
+            for (int i = 0; i < 4; i++)
+            {
+                var card = UiKit.Panel($"KnackCard{i}", _ui, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(-645 + i * 430, 345), new Vector2(400, 190), UiKit.WithAlpha(Palette.UiInk, 0.92f)).rectTransform;
+                var tag = UiKit.Text("Who", card, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(0, -14), new Vector2(380, 40), 30, TextAlignmentOptions.Center, Palette.PlayerTints[i]);
+                tag.fontStyle = FontStyles.Bold; tag.text = $"P{i + 1}";
+                var nm = UiKit.Text("Knack", card, new Vector2(.5f, .5f), new Vector2(.5f, .5f), new Vector2(0, 4), new Vector2(380, 60), 40, TextAlignmentOptions.Center, Palette.TintYellow);
+                nm.fontStyle = FontStyles.Bold; nm.text = names[i];
+                var ln = UiKit.Text("What", card, new Vector2(.5f, 0), new Vector2(.5f, 0), new Vector2(0, 16), new Vector2(380, 40), 26, TextAlignmentOptions.Center, Palette.UiPaper);
+                ln.fontStyle = FontStyles.Italic; ln.text = lines[i];
+                card.localScale = Vector3.zero;
+                cards.Add(card);
+            }
+            float t = 0f;
+            var popped = new bool[4];
+            while (t < hold)
+            {
+                for (int i = 0; i < cards.Count; i++)
+                {
+                    float u = Mathf.Clamp01((t - 0.25f - i * 0.28f) / 0.3f);
+                    const float c1 = 1.70158f, c3 = c1 + 1f;
+                    float back = u <= 0f ? 0f : 1f + c3 * Mathf.Pow(u - 1f, 3) + c1 * Mathf.Pow(u - 1f, 2);
+                    float fade = Mathf.Clamp01((hold - t) / 0.25f);
+                    cards[i].localScale = Vector3.one * back * fade;
+                    cards[i].localRotation = Quaternion.Euler(0, 0, (i % 2 == 0 ? -2f : 2f));
+                    if (u > 0f && !popped[i]) { popped[i] = true; Cue("card"); }
+                }
+                yield return null;
+                t += Time.deltaTime;
+            }
+            foreach (var c in cards) Destroy(c.gameObject);
         }
 
         void Title(string logo, string tagline, float hold) => StartCoroutine(TitleAnim(logo, tagline, hold));
@@ -643,7 +731,7 @@ namespace BodgeSquad.Trailer
         // ================================================================ a stand-in bodger
         class Actor : MonoBehaviour
         {
-            enum State { Idle, Walk, Run, Paint, Push, Cheer, Fall, Throw, Press }
+            enum State { Idle, Walk, Run, Paint, Push, Cheer, Fall, Throw, Press, Talk }
             State _state;
             Transform _armL, _armR, _gloveL, _gloveR;
             Vector3 _armLRest, _armRRest, _gloveLRest, _gloveRRest;
@@ -679,6 +767,7 @@ namespace BodgeSquad.Trailer
             public void Cheer(float seconds, float delay) { _state = State.Cheer; _until = Time.time + seconds; _delay = delay; _t = 0; }
             public void Throw() { _state = State.Throw; _t = 0; }
             public void Press() { _state = State.Press; _t = 0; }
+            public void Talk(float seconds) { _state = State.Talk; _t = 0; _until = Time.time + seconds; }
 
             void Arm(Transform arm, Transform glove, Vector3 shoulder, float pitch, float roll)
             {
@@ -737,6 +826,13 @@ namespace BodgeSquad.Trailer
                     case State.Throw:
                         Arm(_armR, _gloveR, sR, Mathf.Lerp(-170f, -40f, Mathf.Clamp01(_t / 0.25f)), 10);
                         if (_t > 0.6f) _state = State.Idle;
+                        break;
+                    case State.Talk:
+                        // big chatty hand gestures
+                        Arm(_armL, _gloveL, sL, -60f + Mathf.Sin(_t * 5f) * 30f, -25f + Mathf.Sin(_t * 3.1f) * 15f);
+                        Arm(_armR, _gloveR, sR, -75f + Mathf.Sin(_t * 4.3f + 1f) * 35f, 25f + Mathf.Cos(_t * 2.7f) * 15f);
+                        bob = Mathf.Abs(Mathf.Sin(_t * 4f)) * 0.02f;
+                        if (Time.time > _until) _state = State.Idle;
                         break;
                     case State.Press:
                         Arm(_armR, _gloveR, sR, -70f + Mathf.Sin(Mathf.Clamp01(_t / 0.4f) * Mathf.PI) * 20f, 10);
